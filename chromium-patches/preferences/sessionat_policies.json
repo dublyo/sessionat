@@ -1,0 +1,25 @@
+{
+  "_comment": "Sessionat Browser Default Policies",
+  "_description": "These policies are applied to all Sessionat browser installations",
+
+  "ExtensionInstallForcelist": [
+    "dmoljfchnfkphkmoipdfkgfhlchcoebo;https://clients2.google.com/service/update2/crx"
+  ],
+
+  "ExtensionInstallAllowlist": [
+    "dmoljfchnfkphkmoipdfkgfhlchcoebo"
+  ],
+
+  "ExtensionSettings": {
+    "dmoljfchnfkphkmoipdfkgfhlchcoebo": {
+      "installation_mode": "force_installed",
+      "update_url": "https://clients2.google.com/service/update2/crx",
+      "toolbar_pin": "force_pinned",
+      "blocked_permissions": [],
+      "allowed_permissions": ["*"]
+    },
+    "*": {
+      "installation_mode": "allowed"
+    }
+  }
+}

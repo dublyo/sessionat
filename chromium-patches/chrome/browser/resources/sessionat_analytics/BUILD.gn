@@ -1,0 +1,35 @@
+# Copyright 2025 Sessionat. All rights reserved.
+# Resources for chrome://sessionat-analytics/
+
+import("//chrome/common/features.gni")
+import("//tools/grit/grit_rule.gni")
+import("//ui/webui/resources/tools/generate_grd.gni")
+
+assert(!is_android)
+assert(!is_fuchsia, "Fuchsia shouldn't use anything in //chrome")
+
+grit("resources") {
+  defines = chrome_grit_defines
+
+  enable_input_discovery_for_gn_analyze = false
+  source = "$target_gen_dir/resources.grd"
+  deps = [ ":build_grd" ]
+  outputs = [
+    "grit/sessionat_analytics_resources.h",
+    "grit/sessionat_analytics_resources_map.h",
+    "grit/sessionat_analytics_resources_map.cc",
+    "sessionat_analytics_resources.pak",
+  ]
+  output_dir = "$root_gen_dir/chrome"
+}
+
+generate_grd("build_grd") {
+  grd_prefix = "sessionat_analytics"
+  out_grd = "$target_gen_dir/resources.grd"
+  input_files = [
+    "sessionat_analytics.html",
+    "sessionat_analytics.css",
+    "sessionat_analytics.js",
+  ]
+  input_files_base_dir = rebase_path(".", "//")
+}

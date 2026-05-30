@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sessionat — MCP Server</title>
+  <link rel="stylesheet" href="sessionat_mcp.css">
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo-dot"></div>
+        <div>
+          <h1>MCP Server</h1>
+          <p class="subtitle">Local-only. Embedded in Sessionat. Listens on 127.0.0.1.</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <a class="link-btn" href="chrome://sessionat-newtab/">&larr; New Tab</a>
+      </div>
+    </header>
+
+    <section class="card status-card">
+      <div class="status-row">
+        <div class="status-dot" id="statusDot"></div>
+        <div class="status-text">
+          <div class="status-line1" id="statusLine">Loading…</div>
+          <div class="status-line2 muted" id="statusSub"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Connection</h2>
+      <div class="kv-row">
+        <div class="kv-key">Endpoint</div>
+        <div class="kv-val">
+          <code id="endpointUrl">—</code>
+          <button class="copy-btn" data-target="endpointUrl">Copy</button>
+        </div>
+      </div>
+      <div class="kv-row">
+        <div class="kv-key">Bearer token</div>
+        <div class="kv-val">
+          <code id="authToken" class="token-mask">—</code>
+          <button class="copy-btn" data-target="authToken">Copy</button>
+          <button class="copy-btn" id="toggleToken">Show</button>
+        </div>
+      </div>
+      <div class="kv-row">
+        <div class="kv-key">Discovery file</div>
+        <div class="kv-val">
+          <code id="discoveryPath">—</code>
+        </div>
+      </div>
+    </section>
+
+    <section class="card claude-card">
+      <h2>Claude Desktop integration</h2>
+      <div class="claude-status-row">
+        <div class="claude-status-dot" id="claudeDot"></div>
+        <div class="claude-status-text">
+          <div id="claudeLine1">Checking…</div>
+          <div class="muted" id="claudeLine2"></div>
+        </div>
+        <div class="claude-actions">
+          <button class="btn-primary" id="claudeConnect" style="display: none;">Connect</button>
+          <button class="link-btn" id="claudeReconnect" style="display: none;">Re-connect</button>
+          <button class="link-btn danger" id="claudeDisconnect" style="display: none;">Disconnect</button>
+        </div>
+      </div>
+      <p class="muted" id="claudeHint" style="margin-top: 10px;">
+        One-click setup. Atomically writes Sessionat into
+        <code id="claudeConfigPath">~/Library/Application Support/Claude/claude_desktop_config.json</code>
+        with a <code>.bak</code> backup. Requires <code>mcp-remote</code>:
+        <code>npm i -g mcp-remote</code>. Restart Claude Desktop after connecting.
+      </p>
+      <details style="margin-top: 14px;">
+        <summary class="muted" style="cursor: pointer; font-size: 12px;">Show raw config snippet</summary>
+        <pre class="code-block" id="claudeConfig" style="margin-top: 8px;">Loading…</pre>
+      </details>
+    </section>
+
+    <section class="card write-card">
+      <div class="write-row">
+        <div class="write-text">
+          <h2 style="margin: 0 0 4px;">Allow write tools</h2>
+          <p class="muted" style="margin: 0;">
+            Off by default. When enabled, MCP clients can open URLs,
+            create workspaces, and switch tabs. The same bearer token
+            still authenticates every call.
+          </p>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="writeToggle">
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+      <p class="muted" id="writeWarn" style="display: none; margin-top: 10px;">
+        ⚠ Write tools are <strong>ON</strong>. Any process that can read
+        <code id="writeWarnPath">mcp.json</code> can mutate Sessionat state.
+        Disable when you're done if you don't trust everything on this
+        machine.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Tools <span id="toolsSub" class="muted" style="font-weight: normal;"></span></h2>
+      <div id="toolsList" class="tools-list">
+        <p class="muted">Loading…</p>
+      </div>
+    </section>
+
+    <section class="card about">
+      <h2>About this server</h2>
+      <p>
+        The MCP server runs inside Sessionat itself — no external Node process,
+        no Mojo IPC. Tools call directly into Sessionat's WorkspaceService and
+        VisitAnalyticsService.
+      </p>
+      <p class="muted">
+        Bound to <code>127.0.0.1</code> only. Bearer-token authenticated.
+        v0.2 is read-only; write tools (create workspace, switch, open URL)
+        ship in v0.3 with per-client first-use approval.
+      </p>
+    </section>
+  </div>
+  <script src="sessionat_mcp.js"></script>
+</body>
+</html>

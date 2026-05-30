@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sessionat — Visit Analytics</title>
+  <link rel="stylesheet" href="sessionat_analytics.css">
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo-dot"></div>
+        <div>
+          <h1>Visit Analytics</h1>
+          <p class="subtitle">Local-only — never leaves your device.</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <a class="link-btn" href="chrome://sessionat-newtab/">&larr; Back to New Tab</a>
+        <button class="link-btn danger" id="clearBtn" title="Wipe all stored visits">Wipe history</button>
+      </div>
+    </header>
+
+    <!-- Filters -->
+    <section class="filters-row">
+      <div class="range-chips" role="tablist" aria-label="Time range">
+        <button class="chip active" data-range="today" role="tab">Today</button>
+        <button class="chip" data-range="7d" role="tab">Last 7 days</button>
+        <button class="chip" data-range="30d" role="tab">Last 30 days</button>
+      </div>
+      <div class="ws-filter">
+        <label for="workspaceFilter">Workspace</label>
+        <select id="workspaceFilter">
+          <option value="">All workspaces</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- Top-line stats -->
+    <section class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Pages visited</div>
+        <div class="stat-number" id="statTotal">—</div>
+        <div class="stat-sub" id="statRangeLabel">Today</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Unique sites</div>
+        <div class="stat-number" id="statUnique">—</div>
+        <div class="stat-sub">in selected range</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Active time</div>
+        <div class="stat-number" id="statActiveTime">—</div>
+        <div class="stat-sub">focused on web pages</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Per-day average</div>
+        <div class="stat-number" id="statAvgPerDay">—</div>
+        <div class="stat-sub">pages/day</div>
+      </div>
+    </section>
+
+    <!-- Bar chart -->
+    <section class="card chart-card">
+      <h2 id="chartTitle">Activity over time</h2>
+      <div class="chart-wrap">
+        <svg id="chart" preserveAspectRatio="none" viewBox="0 0 1000 220" aria-label="Activity chart"></svg>
+        <div id="chartXAxis" class="chart-x-axis"></div>
+      </div>
+    </section>
+
+    <!-- Top sites + timeline grid -->
+    <div class="two-col">
+      <section class="card">
+        <h2>Top sites
+          <span class="muted" id="topSitesSub" style="font-weight: normal;"></span>
+        </h2>
+        <div id="topHostsList" class="host-list">
+          <p class="muted">Loading…</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Recent visits
+          <span class="muted" id="recentVisitsSub" style="font-weight: normal;"></span>
+        </h2>
+        <div id="visitsList" class="visits-list">
+          <p class="muted">Loading…</p>
+        </div>
+      </section>
+    </div>
+
+    <!-- By category -->
+    <section class="card">
+      <h2>By category
+        <span class="muted" id="categoriesSub" style="font-weight: normal;"></span>
+      </h2>
+      <div id="categoryList" class="category-list">
+        <p class="muted">Loading…</p>
+      </div>
+    </section>
+
+    <!-- By workspace -->
+    <section class="card">
+      <h2>By workspace</h2>
+      <div id="workspaceStats" class="workspace-stats">
+        <p class="muted">Loading workspaces…</p>
+      </div>
+    </section>
+
+    <!-- Drill-down detail modal (in-page card) -->
+    <section class="card" id="hostDetailCard" style="display: none;">
+      <div class="card-header">
+        <h2 id="hostDetailTitle">Site detail</h2>
+        <button class="link-btn" id="hostDetailClose">Close ✕</button>
+      </div>
+      <div id="hostDetailList" class="visits-list"></div>
+    </section>
+
+    <!-- Privacy controls (Phase 2 wrap) -->
+    <section class="card privacy-card">
+      <h2>Privacy &amp; data controls</h2>
+      <div class="privacy-row">
+        <div class="privacy-text">
+          <div class="privacy-line1">Track visits</div>
+          <div class="privacy-line2 muted">
+            When off, no new pages are added to the log. Existing data is
+            preserved; use <em>Wipe history</em> to delete it.
+          </div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="trackingToggle">
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+      <div class="privacy-row">
+        <div class="privacy-text" style="flex: 1; min-width: 0;">
+          <div class="privacy-line1">Excluded sites</div>
+          <div class="privacy-line2 muted">
+            Hosts to never record. One per line. Bare domains match
+            subdomains too — <code>example.com</code> covers
+            <code>www.example.com</code> and <code>foo.bar.example.com</code>.
+          </div>
+          <textarea id="excludedHosts" rows="4" placeholder="example.com&#10;banking.com"></textarea>
+          <div class="privacy-actions">
+            <button class="link-btn" id="saveExclusions">Save exclusions</button>
+            <span class="muted" id="exclusionsStatus" style="font-size: 12px;"></span>
+          </div>
+        </div>
+      </div>
+      <div class="privacy-row">
+        <div class="privacy-text">
+          <div class="privacy-line1">Export my data</div>
+          <div class="privacy-line2 muted">
+            Download every recorded visit as a portable JSON file.
+            Nothing leaves your device until you save the download.
+          </div>
+        </div>
+        <button class="link-btn" id="exportBtn">Download JSON</button>
+      </div>
+    </section>
+
+    <section class="card about">
+      <h2>About this data</h2>
+      <p>
+        Sessionat records the URL and title of every page you visit, the
+        workspace it was in, and a timestamp — <strong>locally only</strong>.
+        Nothing leaves your device. Visits older than 30 days are deleted
+        automatically; you can also wipe everything anytime via the
+        <em>Wipe history</em> button.
+      </p>
+      <p class="muted">
+        Incognito tabs are never tracked. Non-web URLs (<code>chrome://</code>,
+        <code>file://</code>, etc.) are ignored.
+      </p>
+    </section>
+  </div>
+
+  <!-- First-run privacy notice -->
+  <div id="privacyModal" class="modal-backdrop" style="display: none;">
+    <div class="modal">
+      <div class="modal-icon">🛡️</div>
+      <h2>Your browsing stays on this device</h2>
+      <p>
+        Sessionat tracks every web page you visit — the URL, the title, the
+        workspace it was in, and how long you spent on it — to power this
+        dashboard. <strong>All of it stays on your computer.</strong>
+        Nothing is sent to Sessionat or to any third party. Ever.
+      </p>
+      <ul class="privacy-bullets">
+        <li>Incognito tabs are never tracked.</li>
+        <li>Non-web pages (<code>chrome://</code>, <code>file://</code>) are ignored.</li>
+        <li>Visits older than 30 days are deleted automatically.</li>
+        <li>You can wipe everything with one click via "Wipe history".</li>
+      </ul>
+      <button class="btn-primary" id="privacyDismiss">Got it, show my data</button>
+    </div>
+  </div>
+
+  <script src="sessionat_analytics.js"></script>
+</body>
+</html>

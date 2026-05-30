@@ -1,0 +1,29 @@
+diff --git a/chrome/browser/ui/views/session_restore_infobar/session_restore_infobar_delegate.cc b/chrome/browser/ui/views/session_restore_infobar/session_restore_infobar_delegate.cc
+--- a/chrome/browser/ui/views/session_restore_infobar/session_restore_infobar_delegate.cc
++++ b/chrome/browser/ui/views/session_restore_infobar/session_restore_infobar_delegate.cc
+@@ -20,7 +20,6 @@
+ #include "components/infobars/content/content_infobar_manager.h"
+ #include "components/infobars/core/infobar.h"
+ #include "components/infobars/core/infobar_manager.h"
+-#include "components/omnibox/browser/vector_icons.h"
+ #include "components/prefs/pref_service.h"
+ #include "components/vector_icons/vector_icons.h"
+ #include "ui/base/l10n/l10n_util.h"
+@@ -140,8 +139,8 @@ SessionRestoreInfoBarDelegate::GetIdentifier() const {
+ }
+
+ const gfx::VectorIcon& SessionRestoreInfoBarDelegate::GetVectorIcon() const {
+-  return dark_mode() ? omnibox::kProductChromeRefreshIcon
+-                     : vector_icons::kProductRefreshIcon;
++  // Sessionat: Use history icon instead of Chrome product icon
++  return vector_icons::kHistoryChromeRefreshIcon;
+ }
+
+ bool SessionRestoreInfoBarDelegate::ShouldExpire(
+
+--- Description ---
+This patch changes the session restore info bar icon from the Chrome product logo
+to a history icon, which better represents the session restore functionality
+for the Sessionat browser.
+
+Applied to: chrome/browser/ui/views/session_restore_infobar/session_restore_infobar_delegate.cc

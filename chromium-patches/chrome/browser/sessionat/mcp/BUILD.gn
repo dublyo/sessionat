@@ -1,0 +1,38 @@
+# Copyright 2026 Sessionat. All rights reserved.
+# Sessionat embedded MCP (Model Context Protocol) server.
+
+source_set("mcp") {
+  sources = [
+    "claude_config_manager.cc",
+    "claude_config_manager.h",
+    "mcp_service.cc",
+    "mcp_service.h",
+    "mcp_service_factory.cc",
+    "mcp_service_factory.h",
+    "mcp_tools.cc",
+    "mcp_tools.h",
+  ]
+
+  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+
+  deps = [
+    "//base",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/sessionat",
+    "//chrome/common",
+    "//components/input",
+    "//components/keyed_service/core",
+    "//components/pref_registry",
+    "//components/prefs",
+    "//components/viz/common",
+    "//net",
+    "//skia",
+    "//third_party/blink/public/common:headers",
+    "//ui/events:dom_keycode_converter",
+    "//ui/events:events_base",
+    "//ui/gfx",
+    "//ui/gfx/codec",
+    "//ui/gfx/geometry",
+    "//url",
+  ]
+}

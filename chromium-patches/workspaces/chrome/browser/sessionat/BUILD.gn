@@ -1,0 +1,31 @@
+# Copyright 2024 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+source_set("sessionat") {
+  sources = [
+    "session_history_service.cc",
+    "session_history_service.h",
+    "session_history_service_factory.cc",
+    "session_history_service_factory.h",
+    "workspace_model.cc",
+    "workspace_model.h",
+    "workspace_service.cc",
+    "workspace_service.h",
+    "workspace_service_factory.cc",
+    "workspace_service_factory.h",
+  ]
+
+  # Required for circular include with //chrome/browser/ui
+  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+
+  deps = [
+    "//base",
+    "//chrome/browser/profiles:profile",
+    "//components/keyed_service/core",
+    "//components/pref_registry",
+    "//components/prefs",
+    "//content/public/browser",
+    "//url",
+  ]
+}

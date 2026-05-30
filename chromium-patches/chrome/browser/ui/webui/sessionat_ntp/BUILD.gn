@@ -1,0 +1,28 @@
+# Copyright 2025 Sessionat. All rights reserved.
+# WebUI controller for chrome://sessionat-newtab.
+
+assert(!is_android)
+assert(!is_fuchsia, "Fuchsia shouldn't use anything in //chrome")
+
+source_set("sessionat_ntp") {
+  sources = [
+    "sessionat_ntp_ui.cc",
+    "sessionat_ntp_ui.h",
+  ]
+  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+  deps = [
+    "//base",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/resources/sessionat_ntp:resources",
+    "//chrome/browser/sessionat",
+    "//chrome/browser/sessions",
+    "//chrome/browser/ui/navigator",
+    "//chrome/common",
+    "//components/sessions",
+    "//content/public/browser",
+    "//content/public/common",
+    "//services/network/public/mojom",
+    "//ui/base",
+    "//ui/webui",
+  ]
+}

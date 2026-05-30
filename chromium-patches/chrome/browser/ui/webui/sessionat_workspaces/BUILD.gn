@@ -1,0 +1,23 @@
+# Copyright 2026 Sessionat. All rights reserved.
+assert(!is_android)
+assert(!is_fuchsia, "Fuchsia shouldn't use anything in //chrome")
+
+source_set("sessionat_workspaces") {
+  sources = [
+    "sessionat_workspaces_ui.cc",
+    "sessionat_workspaces_ui.h",
+  ]
+  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+  deps = [
+    "//base",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/resources/sessionat_workspaces:resources",
+    "//chrome/browser/sessionat",
+    "//chrome/browser/ui/navigator",
+    "//chrome/common",
+    "//content/public/browser",
+    "//content/public/common",
+    "//ui/base",
+    "//ui/webui",
+  ]
+}

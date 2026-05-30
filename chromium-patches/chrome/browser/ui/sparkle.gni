@@ -1,0 +1,18 @@
+# Sessionat: Sparkle 2 framework metadata.
+#
+# Sparkle ships outside the chromium/src tree to avoid bloating it. GN's `//`
+# scheme is rooted at chromium/src and doesn't traverse upward, so we resolve
+# the SDK path via $HOME + the well-known sibling directory. Override via
+# the SPARKLE_SDK_ROOT env var if you ever check in Sparkle to third_party/.
+#
+# Usage in BUILD.gn:
+#   import("//chrome/browser/ui/sparkle.gni")
+#   frameworks += [ "Sparkle.framework" ]
+#   framework_dirs += [ sparkle_sdk_root ]
+
+sparkle_sdk_root_override = getenv("SPARKLE_SDK_ROOT")
+if (sparkle_sdk_root_override != "") {
+  sparkle_sdk_root = sparkle_sdk_root_override
+} else {
+  sparkle_sdk_root = getenv("HOME") + "/0-Chrome-Custom-Browser/sparkle-2.9.2"
+}

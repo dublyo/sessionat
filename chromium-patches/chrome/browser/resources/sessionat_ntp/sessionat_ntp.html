@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Tab - Sessionat</title>
+  <link rel="stylesheet" href="sessionat_ntp.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header with Logo and Settings -->
+    <header class="header">
+      <div class="logo">
+        <img src="logo.png" alt="Sessionat" class="logo-icon">
+        <span class="logo-text">Sessionat</span>
+      </div>
+      <div class="header-actions">
+        <!-- Save Session Button -->
+        <button class="save-session-btn" id="saveSessionBtn" title="Save Current Session">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          Save Session
+        </button>
+        <!-- MCP server status / settings -->
+        <a class="settings-btn" href="chrome://sessionat-mcp/" target="_blank" title="MCP Server settings · open in new tab">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <!-- A node-graph mini-icon (three connected dots) — sets MCP apart from the cog. -->
+            <circle cx="6" cy="6" r="2"></circle>
+            <circle cx="18" cy="6" r="2"></circle>
+            <circle cx="12" cy="18" r="2"></circle>
+            <path d="M8 7l3 9M16 7l-3 9"></path>
+          </svg>
+        </a>
+        <button class="settings-btn" id="settingsBtn" title="Settings">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Search Bar -->
+    <section class="search-section">
+      <div class="search-container">
+        <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="M21 21l-4.35-4.35"></path>
+        </svg>
+        <input type="text" class="search-input" id="searchInput" placeholder="Search or enter URL" autofocus>
+        <kbd class="search-shortcut">Ctrl+L</kbd>
+      </div>
+    </section>
+
+    <!-- Workspaces -->
+    <section class="workspaces-section" id="workspacesSection">
+      <div class="section-header" style="display: flex; align-items: center; justify-content: space-between;">
+        <h2 class="section-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+          </svg>
+          Workspaces
+        </h2>
+        <div style="display: flex; gap: 8px;">
+          <a href="chrome://sessionat-workspaces/" class="new-workspace-btn" style="background: var(--bg-tertiary); text-decoration: none; color: var(--text-primary);" title="Open the full workspace manager">
+            Manage all
+          </a>
+          <button id="newWorkspaceBtn" class="new-workspace-btn" title="Create a new workspace">
+            + New workspace
+          </button>
+        </div>
+      </div>
+      <p class="workspaces-hint" style="margin: 0 0 var(--spacing-md); color: var(--text-secondary); font-size: 13px;">
+        A workspace is a saved group of tabs. <strong>Click a card to open its tabs</strong> (or use <kbd>Cmd+1..9</kbd>). Right-click any webpage → <em>Add page to workspace…</em> to save it. Press <kbd>⌘K</kbd> to search across every workspace and saved page.
+      </p>
+      <div class="workspaces-grid" id="workspacesGrid"></div>
+      <div id="workspacesMoreLink" style="display: none; margin-top: var(--spacing-md);">
+        <a href="chrome://sessionat-workspaces/" style="color: var(--primary); font-size: 13px;">
+          Show all <span id="workspacesTotal">0</span> workspaces in the manager →
+        </a>
+      </div>
+    </section>
+
+    <!-- Top sites today (from local visit analytics) -->
+    <section class="top-sites-section" id="topSitesSection" style="display: none;">
+      <div class="section-header" style="display: flex; align-items: center; justify-content: space-between;">
+        <h2 class="section-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 20V10"></path>
+            <path d="M18 20V4"></path>
+            <path d="M6 20v-4"></path>
+          </svg>
+          Top sites today
+        </h2>
+        <a href="chrome://sessionat-analytics/" style="color: var(--primary); font-size: 12px; text-decoration: none;">
+          See full analytics →
+        </a>
+      </div>
+      <div class="top-sites-grid" id="topSitesGrid"></div>
+    </section>
+
+    <!-- Favorites Row -->
+    <section class="favorites-section">
+      <div class="section-header">
+        <h2 class="section-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+          </svg>
+          Favorites
+        </h2>
+      </div>
+      <div class="favorites-grid" id="favoritesGrid"></div>
+    </section>
+
+    <!-- Saved Sessions Section -->
+    <section class="saved-sessions-section" id="savedSessionsSection" style="display: none;">
+      <div class="section-header">
+        <h2 class="section-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+          </svg>
+          Saved Sessions
+        </h2>
+      </div>
+      <div class="saved-sessions-list" id="savedSessionsList"></div>
+    </section>
+
+    <!-- Previous Session Section (Recently Closed) -->
+    <section class="session-section">
+      <div class="section-header">
+        <h2 class="section-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          Recently Closed
+        </h2>
+        <div class="session-actions">
+          <button class="action-btn restore-all-btn" id="restoreAllBtn">Restore All</button>
+        </div>
+      </div>
+      <div class="session-grid" id="sessionGrid"></div>
+      <div class="empty-state" id="emptyState" style="display: none;">
+        <h3>No Recent Sessions</h3>
+        <p>Your recently closed tabs will appear here</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- Save Session Modal -->
+  <div class="modal-overlay" id="saveModal" style="display: none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Save Current Session</h3>
+        <button class="modal-close" id="saveModalClose">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label for="sessionName">Session Name (optional)</label>
+        <input type="text" id="sessionName" placeholder="My Session">
+        <p class="modal-hint">Leave empty for auto-generated name</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="saveModalCancel">Cancel</button>
+        <button class="btn btn-primary" id="saveModalConfirm">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal" style="display: none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Session Settings</h3>
+        <button class="modal-close" id="settingsModalClose">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-group">
+          <label class="setting-label">
+            <input type="checkbox" id="autoSaveEnabled" checked>
+            <span>Enable Auto-Save</span>
+          </label>
+          <p class="setting-hint">Automatically save sessions based on settings below</p>
+        </div>
+
+        <div class="setting-group">
+          <label class="setting-label">Minimum Tabs to Trigger Auto-Save</label>
+          <input type="number" id="minTabsThreshold" value="5" min="1" max="50">
+          <p class="setting-hint">Only auto-save when you have at least this many tabs open</p>
+        </div>
+
+        <div class="setting-group">
+          <label class="setting-label">Auto-Save Interval (minutes)</label>
+          <input type="number" id="autoSaveInterval" value="10" min="1" max="60">
+          <p class="setting-hint">How often to update the auto-saved session</p>
+        </div>
+
+        <div class="setting-group">
+          <label class="setting-label">
+            <input type="checkbox" id="saveOnClose" checked>
+            <span>Save on Browser Close</span>
+          </label>
+          <p class="setting-hint">Automatically save all tabs when closing the browser</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="settingsModalCancel">Cancel</button>
+        <button class="btn btn-primary" id="settingsModalSave">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="sessionat_ntp.js"></script>
+</body>
+</html>

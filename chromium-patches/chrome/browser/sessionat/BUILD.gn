@@ -1,0 +1,51 @@
+# Copyright 2025 Sessionat. All rights reserved.
+# Sessionat browser services.
+
+source_set("sessionat") {
+  sources = [
+    "session_history_service.cc",
+    "session_history_service.h",
+    "session_history_service_factory.cc",
+    "session_history_service_factory.h",
+    # update_checker.* and update_notification_service.* removed in v2.0 —
+    # Sparkle 2 replaces them (chrome://settings/help drives Sparkle now,
+    # the NTP no longer has a separate update banner).
+    # See sessionat-update-plan.md.
+    "visit_analytics_service.cc",
+    "visit_analytics_service.h",
+    "visit_analytics_service_factory.cc",
+    "visit_analytics_service_factory.h",
+    "visit_analytics_tab_helper.cc",
+    "visit_analytics_tab_helper.h",
+    "workspace_model.cc",
+    "workspace_model.h",
+    "workspace_service.cc",
+    "workspace_service.h",
+    "workspace_service_factory.cc",
+    "workspace_service_factory.h",
+  ]
+
+  # Required for circular include with //chrome/browser/ui
+  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+
+  deps = [
+    "//base",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/navigator",
+    "//chrome/browser/ui/tabs:tabs_public",
+    "//chrome/common",
+    "//chrome/common:channel_info",
+    "//components/keyed_service/core",
+    "//components/pref_registry",
+    "//components/prefs",
+    "//components/version_info",
+    "//content/public/browser",
+    "//content/public/common",
+    "//net",
+    "//services/network/public/cpp",
+    "//services/network/public/mojom",
+    "//ui/base",
+    "//url",
+  ]
+}

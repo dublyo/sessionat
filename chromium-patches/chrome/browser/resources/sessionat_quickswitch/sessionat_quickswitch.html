@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sessionat Quick Switch</title>
+  <link rel="stylesheet" href="sessionat_quickswitch.css">
+</head>
+<body>
+  <div class="qs-shell">
+    <div class="qs-search">
+      <svg class="qs-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"></circle>
+        <path d="M21 21l-4.35-4.35"></path>
+      </svg>
+      <input id="q" autofocus placeholder="Search workspaces and saved pages..." spellcheck="false">
+      <kbd class="qs-hint">esc</kbd>
+    </div>
+    <div id="results" class="qs-results"></div>
+    <footer class="qs-footer">
+      <span><kbd>↑↓</kbd> navigate</span>
+      <span><kbd>↵</kbd> open</span>
+      <span><kbd>⌘</kbd><kbd>↵</kbd> open in background</span>
+    </footer>
+  </div>
+  <script src="sessionat_quickswitch.js"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+# Copyright 2026 Sessionat. All rights reserved.
+assert(!is_android)
+assert(!is_fuchsia, "Fuchsia shouldn't use anything in //chrome")
+
+source_set("sessionat_mcp") {
+  sources = [
+    "sessionat_mcp_ui.cc",
+    "sessionat_mcp_ui.h",
+  ]
+  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+  deps = [
+    "//base",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/resources/sessionat_mcp:resources",
+    "//chrome/browser/sessionat/mcp",
+    "//chrome/common",
+    "//content/public/browser",
+    "//content/public/common",
+    "//ui/base",
+    "//ui/webui",
+  ]
+}

@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <!-- Primary orange gradient -->
+    <linearGradient id="orangeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F97316"/>
+      <stop offset="50%" stop-color="#FB923C"/>
+      <stop offset="100%" stop-color="#FDBA74"/>
+    </linearGradient>
+
+    <!-- Darker orange for depth -->
+    <linearGradient id="orangeDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EA580C"/>
+      <stop offset="100%" stop-color="#F97316"/>
+    </linearGradient>
+
+    <!-- Lightest orange for highlights -->
+    <linearGradient id="orangeLight" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FB923C"/>
+      <stop offset="100%" stop-color="#FED7AA"/>
+    </linearGradient>
+
+    <!-- Glow filter -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Soft shadow -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#EA580C" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Transparent background - no circle -->
+
+  <!-- S made of stacked tabs - Layer 5 (back, bottom of S curve) -->
+  <g filter="url(#shadow)">
+    <rect x="55" y="130" width="70" height="14" rx="3" fill="url(#orangeDark)" opacity="0.7">
+      <animate attributeName="x" values="55;58;55" dur="4s" repeatCount="indefinite" begin="0s"/>
+      <animate attributeName="opacity" values="0.7;0.8;0.7" dur="4s" repeatCount="indefinite" begin="0s"/>
+    </rect>
+  </g>
+
+  <!-- S made of stacked tabs - Layer 4 -->
+  <g filter="url(#shadow)">
+    <rect x="70" y="115" width="75" height="14" rx="3" fill="url(#orangeGradient)" opacity="0.8">
+      <animate attributeName="x" values="70;65;70" dur="4s" repeatCount="indefinite" begin="0.2s"/>
+      <animate attributeName="opacity" values="0.8;0.9;0.8" dur="4s" repeatCount="indefinite" begin="0.2s"/>
+    </rect>
+  </g>
+
+  <!-- S made of stacked tabs - Layer 3 (middle of S) -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="93" width="80" height="16" rx="4" fill="url(#orangeGradient)">
+      <animate attributeName="x" values="60;55;60" dur="4s" repeatCount="indefinite" begin="0.4s"/>
+    </rect>
+  </g>
+
+  <!-- S made of stacked tabs - Layer 2 -->
+  <g filter="url(#shadow)">
+    <rect x="55" y="71" width="75" height="14" rx="3" fill="url(#orangeGradient)" opacity="0.9">
+      <animate attributeName="x" values="55;62;55" dur="4s" repeatCount="indefinite" begin="0.6s"/>
+      <animate attributeName="opacity" values="0.9;1;0.9" dur="4s" repeatCount="indefinite" begin="0.6s"/>
+    </rect>
+  </g>
+
+  <!-- S made of stacked tabs - Layer 1 (front, top of S curve) -->
+  <g filter="url(#glow)">
+    <rect x="75" y="52" width="70" height="14" rx="3" fill="url(#orangeLight)">
+      <animate attributeName="x" values="75;70;75" dur="4s" repeatCount="indefinite" begin="0.8s"/>
+    </rect>
+  </g>
+
+  <!-- Left curve connector (top of S) -->
+  <path d="M 75 59 Q 45 59 45 85 Q 45 100 60 100"
+        fill="none"
+        stroke="url(#orangeGradient)"
+        stroke-width="12"
+        stroke-linecap="round"
+        opacity="0.9">
+    <animate attributeName="stroke-width" values="12;14;12" dur="3s" repeatCount="indefinite"/>
+  </path>
+
+  <!-- Right curve connector (bottom of S) -->
+  <path d="M 140 100 Q 155 100 155 115 Q 155 137 125 137"
+        fill="none"
+        stroke="url(#orangeGradient)"
+        stroke-width="12"
+        stroke-linecap="round"
+        opacity="0.9">
+    <animate attributeName="stroke-width" values="12;14;12" dur="3s" repeatCount="indefinite" begin="1.5s"/>
+  </path>
+
+  <!-- Accent dots suggesting AI/data points -->
+  <g filter="url(#glow)" opacity="0.8">
+    <circle cx="45" cy="75" r="4" fill="#FDBA74">
+      <animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/>
+      <animate attributeName="r" values="4;5;4" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="155" cy="125" r="4" fill="#FDBA74">
+      <animate attributeName="opacity" values="1;0.6;1" dur="2s" repeatCount="indefinite"/>
+      <animate attributeName="r" values="4;5;4" dur="2s" repeatCount="indefinite" begin="1s"/>
+    </circle>
+  </g>
+
+  <!-- Subtle connecting lines (suggesting organization/flow) -->
+  <g opacity="0.3">
+    <line x1="49" y1="75" x2="55" y2="78" stroke="#FDBA74" stroke-width="1">
+      <animate attributeName="opacity" values="0.3;0.6;0.3" dur="3s" repeatCount="indefinite"/>
+    </line>
+    <line x1="151" y1="125" x2="145" y2="122" stroke="#FDBA74" stroke-width="1">
+      <animate attributeName="opacity" values="0.3;0.6;0.3" dur="3s" repeatCount="indefinite" begin="1.5s"/>
+    </line>
+  </g>
+</svg>

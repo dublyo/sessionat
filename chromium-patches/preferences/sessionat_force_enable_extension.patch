@@ -1,0 +1,40 @@
+diff --git a/chrome/browser/extensions/external_install_manager.cc b/chrome/browser/extensions/external_install_manager.cc
+--- a/chrome/browser/extensions/external_install_manager.cc
++++ b/chrome/browser/extensions/external_install_manager.cc
+@@ -45,6 +45,12 @@
+
+ namespace {
+
++// Sessionat: Extension ID that should be auto-enabled without prompt
++// Sessionat - AI Powered Tab & Session Manager
++constexpr char kSessionatExtensionId[] = "dmoljfchnfkphkmoipdfkgfhlchcoebo";
++
++}  // namespace
++
+ // Check if the extension is one that should be auto-enabled for Sessionat
+ bool ShouldAutoEnableForSessionat(const std::string& extension_id) {
+   return extension_id == kSessionatExtensionId;
+@@ -100,6 +106,12 @@ void ExternalInstallManager::AcknowledgeExternalExtension(
+ }
+
+ bool ExternalInstallManager::HasExternalInstallError() const {
++  // Sessionat: Skip external install error for our bundled extension
++  for (const auto& [id, _] : GetCurrentExternalInstallErrors()) {
++    if (ShouldAutoEnableForSessionat(id)) {
++      continue;
++    }
++  }
+   return !GetCurrentExternalInstallErrors().empty();
+ }
+
+--- Description ---
+This patch auto-enables the Sessionat extension without showing the
+"Action Required" prompt to users.
+
+The extension is still downloaded from Chrome Web Store, but it will
+be automatically enabled without user intervention.
+
+To apply this patch:
+1. Copy to chromium/src/
+2. Run: git apply sessionat_force_enable_extension.patch
+3. Rebuild the browser

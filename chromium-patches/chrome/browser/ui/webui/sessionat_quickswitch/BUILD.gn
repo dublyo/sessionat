@@ -1,0 +1,25 @@
+# Copyright 2026 Sessionat. All rights reserved.
+assert(!is_android)
+assert(!is_fuchsia, "Fuchsia shouldn't use anything in //chrome")
+
+source_set("sessionat_quickswitch") {
+  sources = [
+    "sessionat_quickswitch_ui.cc",
+    "sessionat_quickswitch_ui.h",
+  ]
+  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+  deps = [
+    "//base",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/resources/sessionat_quickswitch:resources",
+    "//chrome/browser/sessionat",
+    "//chrome/browser/ui",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/navigator",
+    "//chrome/common",
+    "//content/public/browser",
+    "//content/public/common",
+    "//ui/base",
+    "//ui/webui",
+  ]
+}

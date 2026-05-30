@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sessionat Credits</title>
+  <style>
+    :root {
+      --bg: #0f0f10;
+      --bg2: #18181b;
+      --border: #2e2e30;
+      --text: #f4f4f5;
+      --muted: #a1a1aa;
+      --orange: #f97316;
+      --orange2: #ea580c;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 48px 24px;
+    }
+    .wrap {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 32px;
+    }
+    header svg, header img { width: 48px; height: 48px; }
+    h1 { margin: 0; font-size: 24px; font-weight: 700; }
+    .subtitle { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+    a { color: var(--orange); text-decoration: none; }
+    a:hover { color: var(--orange2); text-decoration: underline; }
+    h2 {
+      margin: 32px 0 12px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .credit {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 18px;
+      margin-bottom: 10px;
+    }
+    .credit-name {
+      font-weight: 600;
+      font-size: 15px;
+      margin: 0 0 4px;
+    }
+    .credit-meta {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .credit-meta a { color: var(--muted); text-decoration: underline; }
+    p { line-height: 1.6; font-size: 14px; }
+    p.intro { color: var(--muted); }
+    footer {
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           style="color: var(--orange);">
+        <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+        <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+        <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+        <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+      </svg>
+      <div>
+        <h1>Sessionat Credits</h1>
+        <p class="subtitle">
+          <a href="https://sessionat.com/" target="_blank" rel="noopener">sessionat.com</a>
+          · Built on a Chromium foundation, with deep thanks to the projects below.
+        </p>
+      </div>
+    </header>
+
+    <p class="intro">
+      Sessionat is made possible by the
+      <a href="https://sessionat.com/" target="_blank" rel="noopener">Sessionat</a>
+      open source project and a long list of other open source software. A handful of the
+      most load-bearing pieces are credited below; the full attribution list ships with
+      the signed release build.
+    </p>
+
+    <h2>Foundational software</h2>
+
+    <div class="credit">
+      <p class="credit-name">Chromium</p>
+      <p class="credit-meta">
+        BSD-3-Clause ·
+        <a href="https://www.chromium.org/" target="_blank" rel="noopener">chromium.org</a>
+        — the browser engine, Blink, V8, and the surrounding application framework that
+        Sessionat extends.
+      </p>
+    </div>
+
+    <div class="credit">
+      <p class="credit-name">V8</p>
+      <p class="credit-meta">
+        BSD-3-Clause · Chromium's JavaScript and WebAssembly engine.
+      </p>
+    </div>
+
+    <div class="credit">
+      <p class="credit-name">Blink</p>
+      <p class="credit-meta">
+        BSD / LGPL-2.1 · The rendering engine that paints every page Sessionat shows.
+      </p>
+    </div>
+
+    <div class="credit">
+      <p class="credit-name">Skia</p>
+      <p class="credit-meta">
+        BSD-3-Clause ·
+        <a href="https://skia.org/" target="_blank" rel="noopener">skia.org</a>
+        — the 2D graphics library used by Blink and the rest of the browser UI.
+      </p>
+    </div>
+
+    <div class="credit">
+      <p class="credit-name">FFmpeg</p>
+      <p class="credit-meta">
+        LGPL-2.1+ ·
+        <a href="https://ffmpeg.org/" target="_blank" rel="noopener">ffmpeg.org</a>
+        — audio and video decoding for the browser's media stack.
+      </p>
+    </div>
+
+    <footer>
+      Sessionat &copy; 2026. Source: <a href="https://github.com/drhema/sessionat-browser"
+      target="_blank" rel="noopener">github.com/drhema/sessionat-browser</a>.
+    </footer>
+  </div>
+</body>
+</html>

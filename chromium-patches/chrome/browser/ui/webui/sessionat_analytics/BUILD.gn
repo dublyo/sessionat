@@ -1,0 +1,24 @@
+# Copyright 2025 Sessionat. All rights reserved.
+# WebUI controller for chrome://sessionat-analytics/
+
+assert(!is_android)
+assert(!is_fuchsia, "Fuchsia shouldn't use anything in //chrome")
+
+source_set("sessionat_analytics") {
+  sources = [
+    "sessionat_analytics_ui.cc",
+    "sessionat_analytics_ui.h",
+  ]
+  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+  deps = [
+    "//base",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/resources/sessionat_analytics:resources",
+    "//chrome/browser/sessionat",
+    "//chrome/common",
+    "//content/public/browser",
+    "//content/public/common",
+    "//ui/base",
+    "//ui/webui",
+  ]
+}

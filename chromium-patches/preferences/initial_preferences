@@ -1,0 +1,31 @@
+{
+  "distribution": {
+    "create_all_shortcuts": true,
+    "do_not_launch_chrome": false,
+    "make_chrome_default_for_user": true,
+    "skip_first_run_ui": false,
+    "system_level": false,
+    "verbose_logging": false
+  },
+  "browser": {
+    "show_home_button": true,
+    "check_default_browser": true
+  },
+  "bookmark_bar": {
+    "show_on_all_tabs": false
+  },
+  "homepage": "chrome://newtab",
+  "homepage_is_newtabpage": true,
+  "session": {
+    "restore_on_startup": 1
+  },
+  "initial_extensions": {
+    "provider_name": "Sessionat",
+    "list": [
+      "dmoljfchnfkphkmoipdfkgfhlchcoebo"
+    ]
+  },
+  "first_run_tabs": [
+    "chrome://newtab"
+  ]
+}

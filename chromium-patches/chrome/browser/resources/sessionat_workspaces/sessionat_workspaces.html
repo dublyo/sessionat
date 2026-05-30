@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sessionat — Workspaces</title>
+  <link rel="stylesheet" href="sessionat_workspaces.css">
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo-dot"></div>
+        <div>
+          <h1>Workspaces</h1>
+          <p class="subtitle">Saved groups of tabs you can re-open with one click.</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <a class="link-btn" href="chrome://sessionat-newtab/">&larr; Back to New Tab</a>
+        <button id="newWorkspaceBtn" class="btn-primary">
+          <span class="plus">+</span> New workspace
+        </button>
+      </div>
+    </header>
+
+    <section class="toolbar">
+      <div class="search-wrap">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="M21 21l-4.35-4.35"></path>
+        </svg>
+        <input id="searchInput" type="text" placeholder="Filter workspaces or pages…">
+      </div>
+      <div class="toolbar-actions">
+        <button id="expandAllBtn" class="toolbar-btn">Expand all</button>
+        <button id="collapseAllBtn" class="toolbar-btn">Collapse all</button>
+      </div>
+      <div class="hint">
+        Press <kbd>⌘K</kbd> to spotlight-search. Right-click any webpage &rarr; <em>Add page to workspace…</em>.
+      </div>
+    </section>
+
+    <main id="workspacesList" class="workspaces-list">
+      <div class="loading-state" id="loadingState">
+        <div class="spinner"></div>
+        <p>Loading workspaces…</p>
+      </div>
+    </main>
+  </div>
+
+  <script src="sessionat_workspaces.js"></script>
+</body>
+</html>
