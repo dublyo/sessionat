@@ -88,7 +88,7 @@
     </section>
 
     <!-- Top sites today (from local visit analytics) -->
-    <section class="top-sites-section" id="topSitesSection" style="display: none;">
+    <section class="top-sites-section" id="topSitesSection">
       <div class="section-header" style="display: flex; align-items: center; justify-content: space-between;">
         <h2 class="section-title">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -102,7 +102,11 @@
           See full analytics →
         </a>
       </div>
-      <div class="top-sites-grid" id="topSitesGrid"></div>
+      <div class="top-sites-grid" id="topSitesGrid" hidden></div>
+      <div class="top-sites-empty" id="topSitesEmpty">
+        No visits yet today — start browsing to fill this up. Or
+        <a href="chrome://sessionat-analytics/">peek at older days in the full dashboard →</a>
+      </div>
     </section>
 
     <!-- Favorites Row -->

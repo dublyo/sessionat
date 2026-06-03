@@ -715,12 +715,16 @@ if (typeof cr !== 'undefined' && cr.addWebUIListener) {
 function renderTopSitesToday(visits) {
   const section = document.getElementById('topSitesSection');
   const grid = document.getElementById('topSitesGrid');
-  if (!section || !grid) return;
+  const empty = document.getElementById('topSitesEmpty');
+  if (!section || !grid || !empty) return;
   if (!visits || visits.length === 0) {
-    section.style.display = 'none';
+    grid.hidden = true;
+    grid.replaceChildren();
+    empty.hidden = false;
     return;
   }
-  section.style.display = '';
+  empty.hidden = true;
+  grid.hidden = false;
   grid.replaceChildren();
   visits.forEach((v) => {
     const card = document.createElement('a');

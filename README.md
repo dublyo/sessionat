@@ -56,15 +56,19 @@ Every page visit is logged to a local SQLite database with the URL, title, host,
 Dashboard at `chrome://sessionat-analytics/` shows time-per-category, top sites, time-of-day patterns, per-workspace breakdowns.
 
 ### AI control via MCP (Model Context Protocol)
-Sessionat runs a local MCP server (the open standard Anthropic + Cursor + the AI tooling industry have converged on) exposing 21 tools an AI client can call:
+Sessionat runs a local MCP server (the open standard Anthropic + Cursor + the AI tooling industry have converged on) exposing a growing set of tools an AI client can call:
 
-**Read:** `get_active_tab`, `list_open_tabs`, `list_workspaces`, `get_active_workspace`, `get_visits`, `get_top_sites`, `get_category_breakdown`, `get_page_text`, `get_dom_outline`, `screenshot`, `list_frames`
+**Read (browser):** `get_active_tab`, `list_open_tabs`, `list_workspaces`, `get_active_workspace`, `get_visits`, `get_top_sites`, `get_category_breakdown`, `get_page_text`, `get_dom_outline`, `screenshot`, `list_frames`
 
-**Write:** `open_url`, `navigate_active_tab`, `focus_tab`, `close_tab`, `click`, `type`, `press_key`, `scroll`, `wait_for`
+**Read (analytics, v2.0.0):** `sessionat_search_visits`, `sessionat_get_visits_for_host`, `sessionat_get_visit_buckets`, `sessionat_get_top_sites` (with `order_by=visits|active_seconds`)
+
+**Write:** `open_url`, `navigate_active_tab`, `focus_tab`, `close_tab`, `click`, `type`, `press_key`, `scroll`, `wait_for`, `sessionat_create_workspace`
 
 Every event is a real OS-level keyboard/mouse event going through Chromium's regular input pipeline — there is no automation flag for the website to detect. Cloudflare, hCaptcha, Akamai cannot tell your AI is automating Sessionat from a human using it, because nothing about it is different.
 
-Write tools are off by default. Each MCP client must be explicitly granted write permission, per-client, on first use.
+**Multi-client one-click Connect (v2.0.0).** `chrome://sessionat-mcp/` is now a 7-tab dashboard — **Claude Desktop, Cursor, Codex, Claude Code, Windsurf, VS Code, Other** — with a one-click Connect button per client. Each client gets its own 64-hex bearer token (the master token only seeds the per-client registry), so revoking one client doesn't kick the others. The dashboard wires 8 IPC handlers under the hood: `connectClient`, `disconnectClient`, `getClientStatus`, `getAllClientStatuses`, `revealClientConfig`, `setClientWriteGrant`, `testConnection`, `rotateToken`.
+
+Write tools (anything that mutates state) are off by default and gated behind **per-client write grants** — first use of a write tool returns MCP error `-32010` (`kErrWriteRequiresApproval`), Sessionat raises a one-time approval prompt, and only that client's grant is flipped on. Codex is special-cased: Sessionat detects the in-bundle CLI at `/Applications/Codex.app/Contents/Resources/codex` and writes the bearer token directly to `~/.codex/config.toml` (the codex CLI doesn't accept literal tokens on the command line).
 
 ### MIT-licensed, no telemetry, no account
 Sessionat doesn't have a server we run. It doesn't phone home. It doesn't have a built-in analytics service that "anonymously" reports usage. The only network connection Sessionat makes that isn't initiated by you is the once-a-day check to `version.sessionat.com/appcast.xml` for auto-updates (a 4 KB XML file). That's it.

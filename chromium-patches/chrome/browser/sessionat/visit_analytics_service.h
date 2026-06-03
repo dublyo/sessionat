@@ -86,6 +86,33 @@ class VisitAnalyticsService : public KeyedService {
       base::Time end,
       const std::string& workspace_filter_id) const;
 
+  // Per-host aggregation. One pass over visits_ yields both visit_count and
+  // total_active_ms so the caller can rank by whichever metric.
+  struct HostStat {
+    std::string host;
+    int visit_count = 0;
+    int total_active_ms = 0;
+  };
+  std::vector<HostStat> GetHostStatsInRange(
+      base::Time start,
+      base::Time end,
+      const std::string& workspace_filter_id) const;
+
+  // Bucket mode for GetVisitBuckets. kHour aggregates by local hour-of-day
+  // (24 slots), kDayOfWeek by weekday remapped to 0=Mon..6=Sun (7 slots),
+  // kDay by calendar date (one slot per day in range).
+  enum class BucketMode { kHour, kDayOfWeek, kDay };
+  struct BucketStat {
+    std::string key;
+    int visit_count = 0;
+    int total_active_ms = 0;
+  };
+  std::vector<BucketStat> GetVisitBuckets(
+      base::Time start,
+      base::Time end,
+      BucketMode mode,
+      const std::string& workspace_filter_id) const;
+
   // Returns all visits with timestamps in [start, end). Sorted newest first.
   std::vector<Visit> GetVisitsInRange(base::Time start, base::Time end) const;
 
@@ -136,6 +163,16 @@ class VisitAnalyticsService : public KeyedService {
       const std::string& host,
       base::Time start,
       base::Time end,
+      const std::string& workspace_filter_id) const;
+
+  // Case-insensitive substring search over url.spec() OR title within
+  // [start, end). workspace_filter_id="" disables workspace filter. Returns
+  // at most |limit| visits, newest-first.
+  std::vector<Visit> SearchVisitsInRange(
+      const std::string& query,
+      base::Time start,
+      base::Time end,
+      size_t limit,
       const std::string& workspace_filter_id) const;
 
   // Wipes all stored visits. Intended for the upcoming "Privacy → Wipe visit

@@ -1862,3 +1862,15 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.top-sites-empty {
+  padding: var(--spacing-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.top-sites-empty a { color: var(--primary); text-decoration: none; }
+.top-sites-empty a:hover { text-decoration: underline; }

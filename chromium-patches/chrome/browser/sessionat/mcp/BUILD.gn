@@ -3,14 +3,26 @@
 
 source_set("mcp") {
   sources = [
-    "claude_config_manager.cc",
-    "claude_config_manager.h",
+    "client_config_manager.cc",
+    "client_config_manager.h",
+    "client_token_registry.cc",
+    "client_token_registry.h",
+    "client_writers/claude_code_writer.cc",
+    "client_writers/claude_desktop_writer.cc",
+    "client_writers/codex_writer.cc",
+    "client_writers/cursor_writer.cc",
+    "client_writers/vscode_writer.cc",
+    "client_writers/windsurf_writer.cc",
+    "client_writers/writer_common.cc",
+    "client_writers/writer_common.h",
     "mcp_service.cc",
     "mcp_service.h",
     "mcp_service_factory.cc",
     "mcp_service_factory.h",
     "mcp_tools.cc",
     "mcp_tools.h",
+    "write_grants.cc",
+    "write_grants.h",
   ]
 
   public_deps = [ "//chrome/browser:browser_public_dependencies" ]

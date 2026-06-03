@@ -14,8 +14,8 @@
 //     a base::MessagePumpType::IO thread; the UI thread won't do.
 //   - Tools call directly into in-process services (WorkspaceService,
 //     VisitAnalyticsService) — no Mojo, no file reads.
-//   - v0.2 read-only. Write tools land in a follow-up with per-client
-//     first-use approval (CLAUDE.md).
+//   - Multi-token auth: master discovery token + per-client tokens minted
+//     at Connect time. Write tools gated per-token via WriteGrants.
 
 #ifndef CHROME_BROWSER_SESSIONAT_MCP_MCP_SERVICE_H_
 #define CHROME_BROWSER_SESSIONAT_MCP_MCP_SERVICE_H_
@@ -23,6 +23,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
@@ -31,6 +32,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/threading/thread.h"
 #include "base/values.h"
+#include "chrome/browser/sessionat/mcp/client_config_manager.h"
 #include "components/keyed_service/core/keyed_service.h"
 
 class PrefRegistrySimple;
@@ -38,13 +40,16 @@ class Profile;
 
 namespace sessionat {
 
+class ClientTokenRegistry;
+class WriteGrants;
+
 class McpService : public KeyedService {
  public:
   // Tool callback runs on the UI thread. Async signature: the tool delivers
   // its tools/call "content" payload via the `reply` callback (one-shot).
-  // Sync tools wrap the synchronous result with an immediate reply.Run(...);
-  // async tools (page_text, click, type) chain through a renderer round-trip
-  // before invoking reply.
+  // The args dict carries an internal "_ctx" sub-dict with the
+  // requesting bearer token and resolved client id (or "_master") for tools
+  // that need to gate on identity.
   using ToolCallback = base::RepeatingCallback<void(
       const base::DictValue& args,
       base::OnceCallback<void(base::DictValue)> reply)>;
@@ -66,19 +71,38 @@ class McpService : public KeyedService {
   // Status surface for chrome://sessionat-mcp/.
   bool IsRunning() const { return port_ > 0; }
   int port() const { return port_; }
-  const std::string& auth_token() const { return auth_token_; }
+  // The master discovery token. Used by curl, the WebUI test ping, and the
+  // mcp.json discovery file. Stable across restarts (persisted in prefs).
+  const std::string& master_token() const { return master_token_; }
+  // Backwards-compat shim — old call sites used auth_token().
+  const std::string& auth_token() const { return master_token_; }
   base::ListValue GetToolMetadata() const;
   base::FilePath GetDiscoveryFilePath() const;
   Profile* profile() { return profile_; }
 
-  // Write-tools gate (CLAUDE.md hard rule: MCP write tools never auto-grant).
-  // Default false. User flips it via the chrome://sessionat-mcp/ toggle.
-  // Persisted in the user's Sessionat profile prefs.
-  bool IsWriteEnabled() const;
-  void SetWriteEnabled(bool enabled);
+  // Per-client token management.
+  std::string IssueTokenForClient(ClientConfigManager::Client c);
+  void RevokeTokenForClient(ClientConfigManager::Client c);
+  std::vector<ClientConfigManager::Client> ConnectedClients() const;
+  std::optional<std::string> TokenForClient(
+      ClientConfigManager::Client c) const;
+
+  // Per-token write-tool gate (CLAUDE.md hard rule: no auto-grant).
+  bool IsWriteAllowedForToken(const std::string& token) const;
+  bool IsTokenKnown(const std::string& token) const;
+  void SetWriteGrant(const std::string& client_id, bool granted);
+
+  // Returns the new master token. All per-client tokens are wiped, plus all
+  // write grants (caller's responsibility to reconnect / re-grant clients).
+  std::string RotateMasterToken(
+      std::vector<ClientConfigManager::Client>* out_invalidated);
+
+  WriteGrants* write_grants() { return write_grants_.get(); }
+  ClientTokenRegistry* token_registry() { return token_registry_.get(); }
 
   // Called from ServerCore on the IO thread to dispatch a parsed JSON-RPC
-  // request. Bounces back to the IO thread with the response Dict.
+  // request. The request dict is augmented with a "_sessionat_ctx" entry
+  // (token + client id) before dispatch and stripped before returning.
   void HandleRequestFromIo(
       base::Value request,
       base::OnceCallback<void(base::DictValue)> reply_on_io);
@@ -92,10 +116,6 @@ class McpService : public KeyedService {
   void WriteDiscoveryFile();
   void DeleteDiscoveryFile();
 
-  // Async — tools/call dispatch can take a renderer round-trip, so the whole
-  // request handling is funneled through OnceCallbacks. `reply` always gets
-  // called exactly once with the JSON-RPC envelope (or an empty DictValue
-  // for notifications, which the IO thread translates to 204 No Content).
   void HandleSingleRequestAsync(
       const base::DictValue& req,
       base::OnceCallback<void(base::DictValue)> reply);
@@ -120,7 +140,9 @@ class McpService : public KeyedService {
   // Owned by io_thread_; deleted via DeleteSoon when this McpService dies.
   raw_ptr<ServerCore, AcrossTasksDanglingUntriaged> server_core_ = nullptr;
 
-  std::string auth_token_;
+  std::unique_ptr<ClientTokenRegistry> token_registry_;
+  std::unique_ptr<WriteGrants> write_grants_;
+  std::string master_token_;
   int port_ = 0;
   std::map<std::string, ToolEntry> tools_;
 

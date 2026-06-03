@@ -286,7 +286,9 @@ Hardcoded rules:
 
 ### 4.3 Pillar 3 — MCP Server (full-control surface)
 
-**Goal:** Expose browser data and actions to external AI assistants (Claude Desktop, ChatGPT desktop, Cursor, Cline, Continue) via MCP. **One-click auto-install** for detected clients.
+**Goal:** Expose browser data and actions to external AI assistants (Claude Desktop, Cursor, Codex, Claude Code, Windsurf, VS Code, plus an "Other" tab for hand-config) via MCP. **One-click auto-install** for detected clients.
+
+v2.0.0 shipped this as a **multi-client** surface, not a single Claude integration: every connected client gets its own bearer token, its own write-grant set, and its own state-machine row in `chrome://sessionat-mcp/`. The master token in the system keychain only **seeds** per-client tokens — it never travels into a client config.
 
 #### 4.3.1 Architecture — sidecar, not embedded
 
@@ -315,12 +317,16 @@ Hardcoded rules:
                   └────────────────┬───────────────────┘
                                    │ stdio (MCP 2025-03-26)
                                    ▼
-                  ┌────────────────────────────────────┐
-                  │ Claude Desktop / ChatGPT / Cursor  │
-                  └────────────────────────────────────┘
+                  ┌────────────────────────────────────────────────────────┐
+                  │ Claude Desktop · Cursor · Codex · Claude Code ·        │
+                  │ Windsurf · VS Code · Other                             │
+                  │   (each holds its own per-client bearer token)         │
+                  └────────────────────────────────────────────────────────┘
 ```
 
 **Why sidecar, not embedded:** A flaw in MCP-handling code running inside the browser process would have full browser-process privilege — access to every tab's cookies, passwords, etc. Running the MCP server as a separate process means a compromise is bounded by the IPC contract instead.
+
+**Why per-client tokens, not one shared token:** if a single client config file leaks, only that client's token rotates — every other client keeps working. The bridge tags every inbound MCP call with the originating `client_id` so write-grant decisions and audit logs are per-client.
 
 #### 4.3.2 cpp-mcp safety check (user requested)
 
@@ -353,6 +359,10 @@ Hardcoded rules:
 | `get_focus_score` | `period: today\|7d` | numeric + category breakdown |
 | `search_bookmarks` | `query` | array |
 | `get_page_content` | `tab_id, format: text\|markdown\|html` | Readability-extracted content |
+| `sessionat_search_visits` | `query?, start?, end?, workspace_id?, limit?` | full-text + filter over `visits` rows |
+| `sessionat_get_visits_for_host` | `host, start?, end?, workspace_id?, limit?` | every visit row for an origin |
+| `sessionat_get_visit_buckets` | `bucket: hour\|day\|week, start?, end?, workspace_id?` | time-bucketed active-time series |
+| `sessionat_get_top_sites` | `period, workspace_id?, order_by: visits\|active_seconds, limit?` | top sites; `order_by` flips between visit count vs accumulated active seconds |
 
 **Write tools** (each requires user confirmation on first use per client):
 
@@ -364,6 +374,7 @@ Hardcoded rules:
 | `move_tab_to_workspace` | `tab_id, workspace_id` | move tab between workspaces |
 | `switch_workspace` | `workspace_id` | activate workspace |
 | `create_workspace` | `name, icon?, color?` | new workspace |
+| `sessionat_create_workspace` | `name, icon?, color?` | namespaced alias surfaced under the v2.0.0 multi-client tool list; same effect as `create_workspace`, kept distinct so client UIs that group by `sessionat_*` prefix display analytics + workspace creation in one bucket |
 | `delete_workspace` | `workspace_id` | delete + close tabs (confirm) |
 | `save_current_session` | `name` | snapshot tabs as a named session |
 | `restore_session` | `session_id` | restore session into current/new workspace |
@@ -381,64 +392,74 @@ Hardcoded rules:
 - `sessionat://tabs/open`
 - `sessionat://focus-score/today`
 
-#### 4.3.4 Connection UX — one-click auto-install (per Q10)
+#### 4.3.4 Connection UX — `chrome://sessionat-mcp/` (v2.0.0 multi-client)
 
-Settings → **AI Connections** is the main MCP settings page. On open it scans for known client configs:
+The MCP control surface lives at `chrome://sessionat-mcp/` (Settings → AI Connections deep-links there). It's a **7-tab page**, one tab per supported client plus a catch-all:
 
-| Client | Detection path |
-|---|---|
-| Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` (mac), `%APPDATA%\Claude\claude_desktop_config.json` (win) |
-| Cursor | `~/.cursor/mcp.json` |
-| Cline (VS Code ext) | `~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json` |
-| Continue (VS Code ext) | `~/.continue/config.json` |
-| ChatGPT desktop | `~/Library/Application Support/com.openai.chat/mcp_servers.json` (path TBD as feature lands) |
+| Tab | Client | Default config path |
+|---|---|---|
+| Claude Desktop | Anthropic Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` (mac), `%APPDATA%\Claude\claude_desktop_config.json` (win) |
+| Cursor | Cursor IDE | `~/.cursor/mcp.json` |
+| Codex | OpenAI Codex CLI | `~/.codex/config.toml` (TOML, not JSON) |
+| Claude Code | Anthropic Claude Code CLI | written via `claude mcp add` |
+| Windsurf | Codeium Windsurf | `~/.codeium/windsurf/mcp_config.json` |
+| VS Code | VS Code MCP extension(s) | written via `code --add-mcp` |
+| Other | Manual / unsupported | copy-paste snippet only |
 
-UI:
+Each tab reflects a per-client state machine: **`not_installed` → `installed_no_entry` → `connected` → `stale` → `error`**. The header pill ("Connected" / "Not installed" / "Stale config" / "Error") and the action buttons are driven entirely by that state.
 
-```
-┌─ AI Connections ──────────────────────────────────────────────┐
-│                                                                │
-│ Connect Sessionat to your AI assistants                        │
-│                                                                │
-│ ☑ Claude Desktop          Detected ✓        [ Connect ]       │
-│ ☑ Cursor                  Detected ✓        [ Connect ]       │
-│ ☐ Cline                   Detected ✓        [ Connect ]       │
-│ ☐ Continue                Detected ✓        [ Connect ]       │
-│ ☐ ChatGPT desktop         Not installed     [ Get app ]       │
-│                                                                │
-│ ┌────────────────────────────────────────────────────────┐   │
-│ │ Connect all selected                                    │   │
-│ └────────────────────────────────────────────────────────┘   │
-│                                                                │
-│ ── Advanced ──                                                 │
-│   Token: ••••••••••••••••   [ Show ] [ Regenerate ]            │
-│   MCP server path: /Applications/Sessionat.app/.../sessionat-mcp│
-│   Manual config snippet:    [ Copy ]                          │
-│                                                                │
-│ ── Granted permissions ──                                      │
-│   Claude Desktop:  open_url, switch_tab  [ Revoke ]            │
-│   Cursor:          (none yet)                                  │
-└────────────────────────────────────────────────────────────────┘
-```
+##### Multi-Client MCP Architecture
 
-Clicking **Connect**:
-1. Read client's config (or create empty one)
-2. Merge `sessionat` entry into `mcpServers` (preserves existing entries)
-3. Show prompt: "Please restart Claude Desktop to enable the connection"
-4. Atomic write with backup file (`.bak`) for safety
+The browser-side code lives under `chrome/browser/sessionat/mcp/`:
 
-**Failure modes covered:**
-- Config file locked / read-only → fall back to "Copy snippet" + step-by-step manual instructions
-- Existing `sessionat` entry → diff + ask to overwrite
-- Client not installed → "Get app" link to installer page
+- **`client_config_manager.{h,cc}`** — top-level dispatcher (was `claude_config_manager.{h,cc}` in v1). Holds the `WriterOps` table and routes `connect/disconnect/status` calls to the per-client writer for a given `ClientId`.
+- **`client_writers/`** — one writer per supported client:
+  - `claude_desktop_writer.cc`
+  - `cursor_writer.cc`
+  - `codex_writer.cc`
+  - `claude_code_writer.cc`
+  - `windsurf_writer.cc`
+  - `vscode_writer.cc`
+  - `writer_common.{h,cc}` — shared helpers (atomic-write-with-`.bak`, JSON merge, "reveal in Finder", CLI probe)
+- **`client_token_registry.{h,cc}`** — maps `ClientId → 64-hex bearer token`. Tokens are deterministic (HKDF-derived from the master keychain secret + client id) so they survive reinstall without re-prompting, but each client gets its **own** token. The master token is **never** written into a client config.
+- **`write_grants.{h,cc}`** — persistent `(client_id, tool_name) → granted` map. A write tool call from a client that hasn't been granted that tool returns MCP error code **`-32010` (`kErrWriteRequiresApproval`)**; the client surfaces that as a first-use prompt, the user clicks Approve in `chrome://sessionat-mcp/`, the grant is persisted, and the next call succeeds.
+
+The **WriterOps table pattern**: each client writer exposes the same struct of function pointers — `Detect()`, `Connect()`, `Disconnect()`, `ReadStatus()`, `RevealConfig()`. The dispatcher is a flat `std::array<WriterOps, kNumClients>`, so adding a 7th supported client is one struct + one array slot, not a new code path.
+
+##### IPC handlers exposed to `chrome://sessionat-mcp/`
+
+`sessionat_mcp_ui.cc` exposes **8 Mojo IPC handlers** to the WebUI:
+
+1. `connectClient(client_id)` — run that client's writer; mint a per-client token if absent.
+2. `disconnectClient(client_id)` — strip the Sessionat entry from the client config; keep the token in the registry (re-Connect is one click).
+3. `getClientStatus(client_id)` — return one state-machine row with last-error string.
+4. `getAllClientStatuses()` — bulk variant for first paint of the page.
+5. `revealClientConfig(client_id)` — opens the client's config file in Finder / Explorer.
+6. `setClientWriteGrant(client_id, tool_name, granted)` — flip a row in `write_grants`.
+7. `testConnection(client_id)` — round-trip a ping over the IPC bridge using that client's token; surfaces `connected` vs `stale` vs `error`.
+8. `rotateToken(client_id)` — re-derive that client's bearer token and re-write the client config in place.
+
+##### Codex specifics
+
+Codex is the awkward client and earns its own paragraph. The writer:
+
+1. **Probes inside the app bundle for the CLI**, not `$PATH`. Codex ships `codex` at `/Applications/Codex.app/Contents/Resources/codex` and does **not** symlink to `/usr/local/bin`, so a Finder-launched Sessionat (which doesn't inherit shell `PATH`) would otherwise fail to find it.
+2. **Writes TOML directly to `~/.codex/config.toml`** rather than shelling out to `codex mcp add`. Codex's `mcp add` subcommand only supports bearer tokens via env-var indirection (`--env-from`), not as literal strings, and our per-client token model needs the literal string baked into the config. Writer_common's atomic-write-with-`.bak` handles the TOML merge — preserve every existing `[mcp_servers.*]` block, overwrite only the `[mcp_servers.sessionat]` block.
+
+##### Failure modes covered
+
+- Config file locked / read-only → state → `error`, tab shows "Copy snippet" + step-by-step manual instructions.
+- Existing third-party Sessionat-named entry the user hand-wrote → diff dialog before overwrite.
+- Client not installed → state → `not_installed`, button becomes "Get app" linking to the vendor download.
+- CLI missing for clients that write via CLI (Claude Code, VS Code) → writer falls back to direct-file-write or instructs the user to install the CLI.
 
 #### 4.3.5 Auth & permissions
 
-- On first launch, generate a 256-bit token, store in macOS Keychain / Windows Credential Manager / Linux libsecret
-- The browser-side IPC endpoint only accepts connections that present the token
-- Token rotatable from Settings → AI Connections → "Regenerate" (invalidates all client configs; re-Connect required)
-- **Write tools require user confirmation on first use per MCP client** via OS notification: "Claude Desktop wants to call `open_url`. Allow once / Always / Block"
-- Settings → AI Connections shows granted permissions per client, revokable
+- On first launch, generate a 256-bit **master** secret, store in macOS Keychain / Windows Credential Manager / Linux libsecret. The master never leaves the keychain and is **never** written into any client config.
+- Per-client 64-hex bearer tokens are derived from the master via `client_token_registry`. The IPC endpoint authenticates the inbound `client_id` against its registered token and tags every downstream call with that id.
+- Per-client rotation: `chrome://sessionat-mcp/` → client tab → "Rotate token". Only that client's config is rewritten; other clients keep working.
+- **Write tools require per-client first-use approval.** A write call from an un-granted `(client_id, tool_name)` pair returns MCP error `-32010` (`kErrWriteRequiresApproval`); the user approves in the client's tab; the grant persists in `write_grants` and is revokable from the same tab.
+- Destructive tools (`delete_workspace`, `delete_session`) require an additional in-call confirmation even after the per-client grant is in place.
 
 ---
 
@@ -481,21 +502,23 @@ Clicking **Connect**:
 - [ ] NTP "Top 5 today" widget
 - [ ] CI lint: visit_analytics_service has no network egress
 
-### Phase 3 — MCP server (2-3 weeks)
+### Phase 3 — MCP server (2-3 weeks) — ✅ shipped in v2.0.0
 
-- [ ] Mojo IPC bridge in `chrome/browser/sessionat/mcp_bridge/`
-- [ ] Unix socket (macOS/Linux) + named pipe (Windows) listener with token auth
-- [ ] Token generation + Keychain/CredMan/libsecret storage
-- [ ] `sessionat-mcp` TypeScript project using `@modelcontextprotocol/sdk`
-- [ ] Implement all read tools (no-confirmation)
-- [ ] Implement all write tools (per-client first-use confirmation)
-- [ ] `bun build --compile` → single binary per platform
-- [ ] Bundle binary into `Sessionat.app/Contents/MacOS/sessionat-mcp`
-- [ ] Settings → AI Connections page with client detection + one-click connect
-- [ ] Atomic config merge with `.bak` safety, diff-on-overwrite
-- [ ] OS notification flow for first-use write-tool approvals
-- [ ] Permission management UI (granted permissions list, revoke)
-- [ ] Docs + 90-second screencast
+- [x] Mojo IPC bridge in `chrome/browser/sessionat/mcp_bridge/`
+- [x] Unix socket (macOS/Linux) + named pipe (Windows) listener with per-client bearer-token auth
+- [x] Master secret in Keychain/CredMan/libsecret; per-client tokens via `client_token_registry.{h,cc}`
+- [x] `sessionat-mcp` TypeScript project using `@modelcontextprotocol/sdk`
+- [x] Implement all read tools (no-confirmation), incl. the 4 analytics tools (`sessionat_search_visits`, `sessionat_get_visits_for_host`, `sessionat_get_visit_buckets`, `sessionat_get_top_sites`)
+- [x] Implement all write tools (per-client `write_grants.{h,cc}`; un-granted call → MCP `-32010`); incl. `sessionat_create_workspace`
+- [x] `bun build --compile` → single binary per platform
+- [x] Bundle binary into `Sessionat.app/Contents/MacOS/sessionat-mcp`
+- [x] `chrome://sessionat-mcp/` 7-tab page (Claude Desktop / Cursor / Codex / Claude Code / Windsurf / VS Code / Other) with 8 IPC handlers
+- [x] `client_config_manager.{h,cc}` dispatcher + 6 per-client writers under `client_writers/` (Codex writes TOML directly; probes `/Applications/Codex.app/Contents/Resources/codex`)
+- [x] Atomic config merge with `.bak` safety, diff-on-overwrite
+- [x] In-page approval flow for first-use write-tool grants (replaces OS notification — keeps the trust decision inside the browser)
+- [x] Permission management UI (granted-permissions list per tab, revoke)
+- [x] NTP empty-state fix — analytics link is always visible (was hidden on first-run zero-data state)
+- [x] Docs + 90-second screencast
 
 ### Phase 4 — macOS ship (1-2 weeks, overlaps Phase 3)
 
@@ -562,7 +585,7 @@ Clicking **Connect**:
 | 8 | Pricing | **Free forever**, open-source. Donations + GitHub Sponsors. |
 | 9 | Categorization | **Bundled `categories.json`** (~5000 domains), weekly auto-update from version Worker. Uncategorized → user can label. |
 | 10 | Tracking default state | **On by default with prominent first-run notice.** Honest, local-only, toggle in Settings. |
-| 11 | MCP connection UX | **One-click auto-install** for detected clients (Claude Desktop / Cursor / Cline / Continue / ChatGPT). Atomic config merge + `.bak` safety. |
+| 11 | MCP connection UX | **`chrome://sessionat-mcp/` 7-tab multi-client page** (Claude Desktop / Cursor / Codex / Claude Code / Windsurf / VS Code / Other). Per-client bearer tokens, per-client write grants, per-client state machine, atomic config merge + `.bak` safety. |
 
 ---
 

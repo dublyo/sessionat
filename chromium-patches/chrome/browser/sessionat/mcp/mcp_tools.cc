@@ -2,10 +2,13 @@
 
 #include "chrome/browser/sessionat/mcp/mcp_tools.h"
 
+#include <optional>
+
 #include "base/base64.h"
 #include "base/functional/bind.h"
 #include "base/json/json_writer.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
@@ -51,6 +54,23 @@ namespace sessionat {
 
 namespace {
 
+// Pull the request token (placed under args._ctx by McpService) for write-gate
+// lookups. Returns empty when the tool was invoked from a non-MCP path (e.g.
+// internal test harness).
+std::string RequestTokenFromArgs(const base::DictValue& args) {
+  const base::DictValue* ctx = args.FindDict("_ctx");
+  if (!ctx) return std::string();
+  const std::string* t = ctx->FindString("token");
+  return t ? *t : std::string();
+}
+
+std::string RequestClientIdFromArgs(const base::DictValue& args) {
+  const base::DictValue* ctx = args.FindDict("_ctx");
+  if (!ctx) return std::string();
+  const std::string* c = ctx->FindString("client_id");
+  return c ? *c : std::string();
+}
+
 // Wrap a JSON-style Dict as a tools/call result with content blocks.
 base::DictValue TextResult(base::Value v) {
   std::string text;
@@ -77,6 +97,37 @@ base::DictValue ErrorResult(const std::string& message) {
   result.Set("content", std::move(content));
   result.Set("isError", true);
   return result;
+}
+
+// Structured "needs approval" error. Adds a `_meta.sessionat_error` so the
+// WebUI can pick it up and prompt the user.
+base::DictValue WriteApprovalNeeded(const std::string& client_id) {
+  base::DictValue result = ErrorResult(
+      "Sessionat write tools require approval. Open "
+      "chrome://sessionat-mcp/ to grant access.");
+  base::DictValue meta;
+  meta.Set("sessionat_error", "write_requires_approval");
+  meta.Set("client_id", client_id);
+  result.Set("_meta", std::move(meta));
+  return result;
+}
+
+// Gate helper: returns std::nullopt when the caller is allowed to write,
+// otherwise the appropriate error payload.
+std::optional<base::DictValue> CheckWriteGate(Profile* profile,
+                                               const base::DictValue& args) {
+  auto* mcp_svc = sessionat::McpServiceFactory::GetForProfile(profile);
+  if (!mcp_svc) return ErrorResult("MCP service unavailable.");
+  const std::string token = RequestTokenFromArgs(args);
+  if (token.empty() || !mcp_svc->IsTokenKnown(token)) {
+    return ErrorResult(
+        "Write tools require a known bearer token. Connect this client "
+        "from chrome://sessionat-mcp/.");
+  }
+  if (!mcp_svc->IsWriteAllowedForToken(token)) {
+    return WriteApprovalNeeded(RequestClientIdFromArgs(args));
+  }
+  return std::nullopt;
 }
 
 // MCP image content block — Claude Desktop / clients will surface this as
@@ -245,6 +296,43 @@ base::DictValue GetWorkspace(Profile* profile,
   return TextResult(base::Value(std::move(d)));
 }
 
+// sessionat_create_workspace — creates a new workspace with the given name,
+// optional color (hex like "#F97316") and icon (emoji or single char).
+// Returns the new workspace's id + initial state. Write-gated.
+base::DictValue CreateWorkspace(Profile* profile,
+                                const base::DictValue& args) {
+  if (auto err = CheckWriteGate(profile, args); err) return std::move(*err);
+  const std::string* name = args.FindString("name");
+  if (!name || name->empty()) {
+    return ErrorResult("Missing 'name' argument (1-50 chars).");
+  }
+  if (name->size() > 50) {
+    return ErrorResult("'name' must be 50 characters or fewer.");
+  }
+  const std::string color =
+      args.FindString("color") ? *args.FindString("color") : "";
+  const std::string icon =
+      args.FindString("icon") ? *args.FindString("icon") : "";
+
+  auto* ws_svc = WorkspaceServiceFactory::GetForProfile(profile);
+  if (!ws_svc) return ErrorResult("WorkspaceService unavailable");
+
+  const std::string new_id = ws_svc->CreateWorkspace(*name, color, icon);
+  if (new_id.empty()) {
+    return ErrorResult("Failed to create workspace.");
+  }
+
+  const Workspace* ws = ws_svc->GetWorkspace(new_id);
+  base::DictValue d;
+  d.Set("ok", true);
+  d.Set("id", new_id);
+  d.Set("name", ws ? ws->name : *name);
+  d.Set("color", ws ? ws->color : color);
+  d.Set("icon", ws ? ws->icon : icon);
+  d.Set("tab_count", 0);
+  return TextResult(base::Value(std::move(d)));
+}
+
 // sessionat_get_visits
 base::DictValue GetVisits(Profile* profile, const base::DictValue& args) {
   const std::string range_key =
@@ -297,6 +385,12 @@ base::DictValue GetTopSites(Profile* profile,
       args.FindString("workspace_id") ? *args.FindString("workspace_id") : "";
   int limit = args.FindInt("limit").value_or(10);
   limit = std::clamp(limit, 1, 100);
+  std::string order_by =
+      args.FindString("order_by") ? *args.FindString("order_by") : "visits";
+  if (order_by != "visits" && order_by != "active_seconds") {
+    return ErrorResult(
+        "order_by must be \"visits\" or \"active_seconds\"");
+  }
 
   auto* svc = VisitAnalyticsServiceFactory::GetForProfile(profile);
   if (!svc) return ErrorResult("VisitAnalyticsService unavailable");
@@ -304,21 +398,33 @@ base::DictValue GetTopSites(Profile* profile,
   base::Time effective_start =
       range_key == "all" ? base::Time::UnixEpoch() : r.start;
 
-  auto counts = svc->GetHostCountsInRange(effective_start, r.end, ws_filter);
+  auto stats = svc->GetHostStatsInRange(effective_start, r.end, ws_filter);
+  if (order_by == "active_seconds") {
+    std::sort(stats.begin(), stats.end(),
+              [](const auto& a, const auto& b) {
+                if (a.total_active_ms != b.total_active_ms) {
+                  return a.total_active_ms > b.total_active_ms;
+                }
+                return a.host < b.host;
+              });
+  }
+
   base::ListValue rows;
   int kept = 0;
-  for (const auto& [host, count] : counts) {
+  for (const auto& s : stats) {
     if (kept >= limit) break;
     kept++;
     base::DictValue d;
-    d.Set("host", host);
-    d.Set("visit_count", count);
-    d.Set("category", svc->GetCategoryForHost(host));
+    d.Set("host", s.host);
+    d.Set("visit_count", s.visit_count);
+    d.Set("active_seconds", s.total_active_ms / 1000);
+    d.Set("category", svc->GetCategoryForHost(s.host));
     rows.Append(std::move(d));
   }
   base::DictValue out;
   out.Set("range", r.label);
   out.Set("workspace_filter", ws_filter);
+  out.Set("order_by", order_by);
   out.Set("top_sites", std::move(rows));
   return TextResult(base::Value(std::move(out)));
 }
@@ -368,6 +474,174 @@ base::DictValue GetCategoryBreakdown(Profile* profile,
   return TextResult(base::Value(std::move(out)));
 }
 
+// sessionat_search_visits
+base::DictValue SearchVisits(Profile* profile, const base::DictValue& args) {
+  const std::string query =
+      args.FindString("query") ? *args.FindString("query") : "";
+  if (query.empty()) {
+    return ErrorResult("query is required and must be non-empty");
+  }
+  const std::string range_key =
+      args.FindString("range") ? *args.FindString("range") : "7d";
+  const std::string ws_filter =
+      args.FindString("workspace_id") ? *args.FindString("workspace_id") : "";
+  int limit = args.FindInt("limit").value_or(50);
+  limit = std::clamp(limit, 1, 500);
+
+  auto* svc = VisitAnalyticsServiceFactory::GetForProfile(profile);
+  if (!svc) return ErrorResult("VisitAnalyticsService unavailable");
+
+  const Range r = ResolveRange(range_key);
+  base::Time effective_start =
+      range_key == "all" ? base::Time::UnixEpoch() : r.start;
+
+  std::vector<Visit> visits = svc->SearchVisitsInRange(
+      query, effective_start, r.end, static_cast<size_t>(limit), ws_filter);
+
+  base::ListValue rows;
+  for (const auto& v : visits) {
+    base::DictValue d;
+    d.Set("url", v.url.spec());
+    d.Set("host", v.host);
+    d.Set("title", v.title);
+    d.Set("workspace_id", v.workspace_id);
+    d.Set("timestamp_ms",
+          static_cast<double>(v.timestamp.InMillisecondsSinceUnixEpoch()));
+    d.Set("active_seconds", v.active_ms / 1000);
+    d.Set("category", svc->GetCategoryForHost(v.host));
+    rows.Append(std::move(d));
+  }
+
+  base::DictValue out;
+  out.Set("query", query);
+  out.Set("range", r.label);
+  out.Set("workspace_filter", ws_filter);
+  out.Set("count", static_cast<int>(visits.size()));
+  out.Set("visits", std::move(rows));
+  return TextResult(base::Value(std::move(out)));
+}
+
+// sessionat_get_visits_for_host
+base::DictValue GetVisitsForHost(Profile* profile,
+                                 const base::DictValue& args) {
+  const std::string* host_in = args.FindString("host");
+  if (!host_in || host_in->empty()) {
+    return ErrorResult("Missing 'host' argument.");
+  }
+  std::string host = base::ToLowerASCII(*host_in);
+  if (base::StartsWith(host, "www.", base::CompareCase::SENSITIVE)) {
+    host = host.substr(4);
+  }
+
+  const std::string range_key =
+      args.FindString("range") ? *args.FindString("range") : "30d";
+  const std::string ws_filter =
+      args.FindString("workspace_id") ? *args.FindString("workspace_id") : "";
+  int limit = args.FindInt("limit").value_or(100);
+  limit = std::clamp(limit, 1, 500);
+
+  auto* svc = VisitAnalyticsServiceFactory::GetForProfile(profile);
+  if (!svc) return ErrorResult("VisitAnalyticsService unavailable");
+
+  const Range r = ResolveRange(range_key);
+  base::Time effective_start =
+      range_key == "all" ? base::Time::UnixEpoch() : r.start;
+
+  std::vector<Visit> visits =
+      svc->GetVisitsForHostInRange(host, effective_start, r.end, ws_filter);
+
+  base::ListValue rows;
+  int kept = 0;
+  for (const auto& v : visits) {
+    if (kept >= limit) break;
+    kept++;
+    base::DictValue d;
+    d.Set("url", v.url.spec());
+    d.Set("host", v.host);
+    d.Set("title", v.title);
+    d.Set("workspace_id", v.workspace_id);
+    d.Set("timestamp_ms",
+          static_cast<double>(v.timestamp.InMillisecondsSinceUnixEpoch()));
+    d.Set("active_seconds", v.active_ms / 1000);
+    d.Set("category", svc->GetCategoryForHost(v.host));
+    rows.Append(std::move(d));
+  }
+
+  base::DictValue out;
+  out.Set("host", host);
+  out.Set("range", r.label);
+  out.Set("workspace_filter", ws_filter);
+  out.Set("count", kept);
+  out.Set("visits", std::move(rows));
+  return TextResult(base::Value(std::move(out)));
+}
+
+// sessionat_get_visit_buckets
+base::DictValue GetVisitBuckets(Profile* profile,
+                                const base::DictValue& args) {
+  const std::string bucket_key =
+      args.FindString("bucket") ? *args.FindString("bucket") : "";
+  if (bucket_key != "hour" && bucket_key != "day_of_week" &&
+      bucket_key != "day") {
+    return ErrorResult(
+        "Missing or invalid 'bucket' (expected hour|day_of_week|day).");
+  }
+  const std::string range_key =
+      args.FindString("range") ? *args.FindString("range") : "30d";
+  const std::string ws_filter =
+      args.FindString("workspace_id") ? *args.FindString("workspace_id") : "";
+
+  auto* svc = VisitAnalyticsServiceFactory::GetForProfile(profile);
+  if (!svc) return ErrorResult("VisitAnalyticsService unavailable");
+
+  const Range r = ResolveRange(range_key);
+  base::Time effective_start =
+      range_key == "all" ? base::Time::UnixEpoch() : r.start;
+
+  VisitAnalyticsService::BucketMode mode =
+      VisitAnalyticsService::BucketMode::kHour;
+  if (bucket_key == "day_of_week") {
+    mode = VisitAnalyticsService::BucketMode::kDayOfWeek;
+  } else if (bucket_key == "day") {
+    mode = VisitAnalyticsService::BucketMode::kDay;
+  }
+
+  // Day-bucket runs scale with the date range; cap at one year to keep the
+  // response bounded for range="all".
+  if (mode == VisitAnalyticsService::BucketMode::kDay) {
+    constexpr int kMaxDayBuckets = 366;
+    base::Time min_start =
+        r.end.LocalMidnight() - base::Days(kMaxDayBuckets - 1);
+    if (effective_start < min_start) effective_start = min_start;
+  }
+
+  std::vector<VisitAnalyticsService::BucketStat> stats =
+      svc->GetVisitBuckets(effective_start, r.end, mode, ws_filter);
+
+  base::ListValue rows;
+  int total_visits = 0;
+  int total_active_ms = 0;
+  for (const auto& s : stats) {
+    base::DictValue d;
+    d.Set("key", s.key);
+    d.Set("visit_count", s.visit_count);
+    d.Set("active_seconds", s.total_active_ms / 1000);
+    rows.Append(std::move(d));
+    total_visits += s.visit_count;
+    total_active_ms += s.total_active_ms;
+  }
+
+  base::DictValue out;
+  out.Set("bucket", bucket_key);
+  out.Set("range", r.label);
+  out.Set("workspace_filter", ws_filter);
+  out.Set("bucket_count", static_cast<int>(stats.size()));
+  out.Set("total_visits", total_visits);
+  out.Set("total_active_seconds", total_active_ms / 1000);
+  out.Set("buckets", std::move(rows));
+  return TextResult(base::Value(std::move(out)));
+}
+
 // ====================================================================
 // Write tools — gated on McpService::IsWriteEnabled() (CLAUDE.md rule)
 // ====================================================================
@@ -375,13 +649,7 @@ base::DictValue GetCategoryBreakdown(Profile* profile,
 // sessionat_open_url — opens a URL in a new foreground tab in the user's
 // active Sessionat window.
 base::DictValue OpenUrl(Profile* profile, const base::DictValue& args) {
-  auto* mcp_svc =
-      sessionat::McpServiceFactory::GetForProfile(profile);
-  if (!mcp_svc || !mcp_svc->IsWriteEnabled()) {
-    return ErrorResult(
-        "Write tools are disabled. Open chrome://sessionat-mcp/ in "
-        "Sessionat and toggle 'Allow write tools' on, then retry.");
-  }
+  if (auto err = CheckWriteGate(profile, args); err) return std::move(*err);
   const std::string* url_str = args.FindString("url");
   if (!url_str || url_str->empty()) {
     return ErrorResult("Missing 'url' argument.");
@@ -433,12 +701,7 @@ BrowserWindowInterface* GetActiveTabbedBrowser(Profile* profile,
 base::DictValue WriteGate(Profile* profile, base::DictValue (*body)(
                               Profile*, const base::DictValue&),
                           const base::DictValue& args) {
-  auto* mcp_svc = sessionat::McpServiceFactory::GetForProfile(profile);
-  if (!mcp_svc || !mcp_svc->IsWriteEnabled()) {
-    return ErrorResult(
-        "Write tools are disabled. Open chrome://sessionat-mcp/ in "
-        "Sessionat and toggle 'Allow write tools' on, then retry.");
-  }
+  if (auto err = CheckWriteGate(profile, args); err) return std::move(*err);
   return body(profile, args);
 }
 
@@ -663,11 +926,8 @@ void WriteGateAsync(
                  base::OnceCallback<void(base::DictValue)>),
     const base::DictValue& args,
     base::OnceCallback<void(base::DictValue)> reply) {
-  auto* mcp_svc = sessionat::McpServiceFactory::GetForProfile(profile);
-  if (!mcp_svc || !mcp_svc->IsWriteEnabled()) {
-    std::move(reply).Run(ErrorResult(
-        "Write tools are disabled. Open chrome://sessionat-mcp/ in "
-        "Sessionat and toggle 'Allow write tools' on, then retry."));
+  if (auto err = CheckWriteGate(profile, args); err) {
+    std::move(reply).Run(std::move(*err));
     return;
   }
   body(profile, args, std::move(reply));
@@ -1814,6 +2074,38 @@ void RegisterSessionatTools(
         base::BindRepeating(&GetWorkspace));
   }
 
+  // ---- create_workspace (WRITE tool) ----
+  {
+    base::DictValue schema;
+    schema.Set("type", "object");
+    base::DictValue props;
+    base::DictValue name_prop;
+    name_prop.Set("type", "string");
+    name_prop.Set("description",
+                  "Workspace name (1-50 characters). Shown in the sidebar.");
+    name_prop.Set("minLength", 1);
+    name_prop.Set("maxLength", 50);
+    props.Set("name", std::move(name_prop));
+    props.Set("color",
+              StringProp("Optional hex color like '#F97316' for the "
+                          "sidebar chip. Defaults to the brand color."));
+    props.Set("icon",
+              StringProp("Optional emoji or single character to render in "
+                          "the sidebar (e.g. '💼')."));
+    schema.Set("properties", std::move(props));
+    base::ListValue required;
+    required.Append("name");
+    schema.Set("required", std::move(required));
+    schema.Set("additionalProperties", false);
+    add("sessionat_create_workspace",
+        "WRITE TOOL — create a new workspace in the user's Sessionat "
+        "browser. Returns {ok, id, name, color, icon, tab_count}. "
+        "Disabled by default; user must enable write tools via "
+        "chrome://sessionat-mcp/ first.",
+        std::move(schema),
+        base::BindRepeating(&CreateWorkspace));
+  }
+
   // ---- get_visits ----
   {
     base::DictValue schema;
@@ -1844,10 +2136,18 @@ void RegisterSessionatTools(
                         {"today", "7d", "30d", "all"}, "today"));
     props.Set("workspace_id", StringProp("Optional workspace filter."));
     props.Set("limit", NumberProp("Max hosts (default 10, max 100).", 1, 100));
+    props.Set("order_by",
+              EnumProp("Ranking metric. \"visits\" ranks by raw visit count "
+                       "(the original behavior). \"active_seconds\" ranks by "
+                       "total foreground time spent on the host in the range.",
+                        {"visits", "active_seconds"}, "visits"));
     schema.Set("properties", std::move(props));
     schema.Set("additionalProperties", false);
     add("sessionat_get_top_sites",
-        "Top hosts by visit count in a range, with auto-assigned category.",
+        "Top hosts in a range, with auto-assigned category. By default ranks "
+        "by visit count; pass order_by=\"active_seconds\" to rank by total "
+        "foreground time instead. Each row carries host, visit_count, "
+        "active_seconds, and category.",
         std::move(schema),
         base::BindRepeating(&GetTopSites));
   }
@@ -1870,6 +2170,94 @@ void RegisterSessionatTools(
         "counts, active time, and percentage share per category.",
         std::move(schema),
         base::BindRepeating(&GetCategoryBreakdown));
+  }
+
+  // ---- search_visits ----
+  {
+    base::DictValue schema;
+    schema.Set("type", "object");
+    base::DictValue props;
+    props.Set("query",
+              StringProp("Case-insensitive substring; matches URL or title."));
+    props.Set("range",
+              EnumProp("Time range to search.",
+                        {"today", "7d", "30d", "all"}, "7d"));
+    props.Set("workspace_id", StringProp("Optional workspace filter."));
+    props.Set("limit", NumberProp("Max rows (default 50, max 500).", 1, 500));
+    base::ListValue required;
+    required.Append("query");
+    schema.Set("properties", std::move(props));
+    schema.Set("required", std::move(required));
+    schema.Set("additionalProperties", false);
+    add("sessionat_search_visits",
+        "Substring search over the user's visit history (URL or title, "
+        "case-insensitive) within a time range, optionally scoped to a "
+        "workspace. Returns newest-first rows with the same shape as "
+        "sessionat_get_visits: url, host, title, workspace_id, "
+        "timestamp_ms, active_seconds, category.",
+        std::move(schema),
+        base::BindRepeating(&SearchVisits));
+  }
+
+  // ---- get_visits_for_host ----
+  {
+    base::DictValue schema;
+    schema.Set("type", "object");
+    base::DictValue props;
+    props.Set("host",
+              StringProp("Hostname to drill into, e.g. \"github.com\". "
+                         "Case-insensitive; a leading \"www.\" is stripped."));
+    props.Set("range",
+              EnumProp("Time range to query.",
+                        {"today", "7d", "30d", "all"}, "30d"));
+    props.Set("workspace_id", StringProp("Optional workspace filter."));
+    props.Set("limit",
+              NumberProp("Max rows (default 100, max 500).", 1, 500));
+    schema.Set("properties", std::move(props));
+    base::ListValue required;
+    required.Append("host");
+    schema.Set("required", std::move(required));
+    schema.Set("additionalProperties", false);
+    add("sessionat_get_visits_for_host",
+        "All page visits for a single host within a time range, newest-first. "
+        "Use after sessionat_get_top_sites to drill into one domain — returns "
+        "the same row shape as sessionat_get_visits (url, title, host, "
+        "workspace_id, timestamp_ms, active_seconds, category).",
+        std::move(schema),
+        base::BindRepeating(&GetVisitsForHost));
+  }
+
+  // ---- get_visit_buckets ----
+  {
+    base::DictValue schema;
+    schema.Set("type", "object");
+    base::DictValue props;
+    props.Set("bucket",
+              EnumProp("Bucket dimension. 'hour' aggregates by local "
+                       "hour-of-day (keys '0'..'23'). 'day_of_week' "
+                       "aggregates by weekday (keys '0'..'6', 0=Mon..6=Sun). "
+                       "'day' returns one row per calendar date in range "
+                       "(keys 'YYYY-MM-DD').",
+                       {"hour", "day_of_week", "day"}, "hour"));
+    props.Set("range",
+              EnumProp("Time range to query.",
+                       {"today", "7d", "30d", "all"}, "30d"));
+    props.Set("workspace_id", StringProp("Optional workspace filter."));
+    schema.Set("properties", std::move(props));
+    base::ListValue required;
+    required.Append("bucket");
+    schema.Set("required", std::move(required));
+    schema.Set("additionalProperties", false);
+    add("sessionat_get_visit_buckets",
+        "Time-distribution of browsing for a range. Three modes: 'hour' "
+        "(0-23 local hour-of-day, aggregated — answers 'when during the day "
+        "do I browse most?'), 'day_of_week' (0-6, 0=Mon, aggregated — "
+        "'what does my Monday vs Friday look like?'), or 'day' (one row per "
+        "calendar date in range, max 366 rows; longer ranges are silently "
+        "capped to the last 366 days). Each row carries visit_count and "
+        "active_seconds. Empty buckets are returned with zeros.",
+        std::move(schema),
+        base::BindRepeating(&GetVisitBuckets));
   }
 
   // ---- open_url (WRITE tool) ----

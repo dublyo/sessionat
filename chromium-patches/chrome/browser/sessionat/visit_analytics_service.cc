@@ -7,6 +7,8 @@
 
 #include "base/json/json_writer.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/profiles/profile.h"
@@ -660,6 +662,125 @@ std::vector<Visit> VisitAnalyticsService::GetVisitsForHostInRange(
             [](const Visit& a, const Visit& b) {
               return a.timestamp > b.timestamp;
             });
+  return out;
+}
+
+std::vector<Visit> VisitAnalyticsService::SearchVisitsInRange(
+    const std::string& query,
+    base::Time start,
+    base::Time end,
+    size_t limit,
+    const std::string& workspace_filter_id) const {
+  std::vector<Visit> out;
+  if (query.empty()) return out;
+  const std::string needle = base::ToLowerASCII(query);
+  for (const auto& v : visits_) {
+    if (v.timestamp < start || v.timestamp >= end) continue;
+    if (!workspace_filter_id.empty() &&
+        v.workspace_id != workspace_filter_id) {
+      continue;
+    }
+    const std::string url_lc = base::ToLowerASCII(v.url.spec());
+    const std::string title_lc = base::ToLowerASCII(v.title);
+    if (url_lc.find(needle) == std::string::npos &&
+        title_lc.find(needle) == std::string::npos) {
+      continue;
+    }
+    out.push_back(v);
+  }
+  std::sort(out.begin(), out.end(),
+            [](const Visit& a, const Visit& b) {
+              return a.timestamp > b.timestamp;
+            });
+  if (out.size() > limit) out.resize(limit);
+  return out;
+}
+
+std::vector<VisitAnalyticsService::HostStat>
+VisitAnalyticsService::GetHostStatsInRange(
+    base::Time start,
+    base::Time end,
+    const std::string& workspace_filter_id) const {
+  std::unordered_map<std::string, HostStat> agg;
+  for (const auto& v : visits_) {
+    if (v.timestamp < start || v.timestamp >= end) continue;
+    if (!workspace_filter_id.empty() &&
+        v.workspace_id != workspace_filter_id) {
+      continue;
+    }
+    if (v.host.empty()) continue;
+    auto& s = agg[v.host];
+    if (s.host.empty()) s.host = v.host;
+    s.visit_count++;
+    s.total_active_ms += v.active_ms;
+  }
+  std::vector<HostStat> out;
+  out.reserve(agg.size());
+  for (auto& [_, s] : agg) out.push_back(std::move(s));
+  std::sort(out.begin(), out.end(),
+            [](const HostStat& a, const HostStat& b) {
+              if (a.visit_count != b.visit_count) {
+                return a.visit_count > b.visit_count;
+              }
+              return a.host < b.host;
+            });
+  return out;
+}
+
+std::vector<VisitAnalyticsService::BucketStat>
+VisitAnalyticsService::GetVisitBuckets(
+    base::Time start,
+    base::Time end,
+    BucketMode mode,
+    const std::string& workspace_filter_id) const {
+  if (end <= start) return {};
+
+  std::vector<BucketStat> out;
+  base::Time start_day = start.LocalMidnight();
+  if (mode == BucketMode::kHour) {
+    out.resize(24);
+    for (int h = 0; h < 24; ++h) out[h].key = base::NumberToString(h);
+  } else if (mode == BucketMode::kDayOfWeek) {
+    out.resize(7);
+    for (int d = 0; d < 7; ++d) out[d].key = base::NumberToString(d);
+  } else {
+    base::Time end_day = (end - base::Microseconds(1)).LocalMidnight();
+    int day_count = (end_day - start_day).InDays() + 1;
+    if (day_count < 1) day_count = 1;
+    out.resize(day_count);
+    for (int i = 0; i < day_count; ++i) {
+      base::Time::Exploded e;
+      (start_day + base::Days(i)).LocalExplode(&e);
+      out[i].key = base::StringPrintf("%04d-%02d-%02d", e.year, e.month,
+                                      e.day_of_month);
+    }
+  }
+
+  for (const auto& v : visits_) {
+    if (v.timestamp < start || v.timestamp >= end) continue;
+    if (!workspace_filter_id.empty() &&
+        v.workspace_id != workspace_filter_id) {
+      continue;
+    }
+    base::Time::Exploded e;
+    v.timestamp.LocalExplode(&e);
+    size_t idx = 0;
+    if (mode == BucketMode::kHour) {
+      idx = static_cast<size_t>(e.hour);
+    } else if (mode == BucketMode::kDayOfWeek) {
+      // Exploded.day_of_week is 0=Sun..6=Sat; remap to 0=Mon..6=Sun.
+      int dow_mon0 = (e.day_of_week + 6) % 7;
+      idx = static_cast<size_t>(dow_mon0);
+    } else {
+      base::Time day_t = v.timestamp.LocalMidnight();
+      int day_idx = (day_t - start_day).InDays();
+      if (day_idx < 0) continue;
+      idx = static_cast<size_t>(day_idx);
+    }
+    if (idx >= out.size()) continue;
+    out[idx].visit_count++;
+    out[idx].total_active_ms += v.active_ms;
+  }
   return out;
 }
 

@@ -28,6 +28,10 @@
           <div class="status-line1" id="statusLine">Loading…</div>
           <div class="status-line2 muted" id="statusSub"></div>
         </div>
+        <div class="status-actions">
+          <button class="link-btn" id="testConnBtn">Test connection</button>
+          <button class="link-btn" id="rotateTokenBtn">Rotate token</button>
+        </div>
       </div>
     </section>
 
@@ -52,34 +56,53 @@
         <div class="kv-key">Discovery file</div>
         <div class="kv-val">
           <code id="discoveryPath">—</code>
+          <button class="copy-btn" data-target="discoveryPath">Copy</button>
+          <button class="link-btn" id="revealDiscovery">Reveal in Finder</button>
         </div>
       </div>
     </section>
 
-    <section class="card claude-card">
-      <h2>Claude Desktop integration</h2>
-      <div class="claude-status-row">
-        <div class="claude-status-dot" id="claudeDot"></div>
-        <div class="claude-status-text">
-          <div id="claudeLine1">Checking…</div>
-          <div class="muted" id="claudeLine2"></div>
-        </div>
-        <div class="claude-actions">
-          <button class="btn-primary" id="claudeConnect" style="display: none;">Connect</button>
-          <button class="link-btn" id="claudeReconnect" style="display: none;">Re-connect</button>
-          <button class="link-btn danger" id="claudeDisconnect" style="display: none;">Disconnect</button>
-        </div>
+    <section class="card clients-card">
+      <h2>Clients <span class="muted" id="clientsCountSub" style="font-weight: normal;"></span></h2>
+      <nav class="clients-tabs" role="tablist" id="clientsTabs">
+        <button class="clients-tabs__tab clients-tabs__tab--active" data-client="claude_desktop" role="tab" type="button">
+          <span class="client-icon" data-icon="claude_desktop"></span>
+          <span class="clients-tabs__label">Claude Desktop</span>
+          <span class="status-dot status-dot--inline" data-status-for="claude_desktop"></span>
+        </button>
+        <button class="clients-tabs__tab" data-client="cursor" role="tab" type="button">
+          <span class="client-icon" data-icon="cursor"></span>
+          <span class="clients-tabs__label">Cursor</span>
+          <span class="status-dot status-dot--inline" data-status-for="cursor"></span>
+        </button>
+        <button class="clients-tabs__tab" data-client="codex" role="tab" type="button">
+          <span class="client-icon" data-icon="codex"></span>
+          <span class="clients-tabs__label">Codex</span>
+          <span class="status-dot status-dot--inline" data-status-for="codex"></span>
+        </button>
+        <button class="clients-tabs__tab" data-client="claude_code" role="tab" type="button">
+          <span class="client-icon" data-icon="claude_code"></span>
+          <span class="clients-tabs__label">Claude Code</span>
+          <span class="status-dot status-dot--inline" data-status-for="claude_code"></span>
+        </button>
+        <button class="clients-tabs__tab" data-client="windsurf" role="tab" type="button">
+          <span class="client-icon" data-icon="windsurf"></span>
+          <span class="clients-tabs__label">Windsurf</span>
+          <span class="status-dot status-dot--inline" data-status-for="windsurf"></span>
+        </button>
+        <button class="clients-tabs__tab" data-client="vscode" role="tab" type="button">
+          <span class="client-icon" data-icon="vscode"></span>
+          <span class="clients-tabs__label">VS Code</span>
+          <span class="status-dot status-dot--inline" data-status-for="vscode"></span>
+        </button>
+        <button class="clients-tabs__tab" data-client="other" role="tab" type="button">
+          <span class="client-icon" data-icon="other"></span>
+          <span class="clients-tabs__label">Other</span>
+        </button>
+      </nav>
+      <div class="clients-panels" id="clientsPanels">
+        <p class="muted">Loading client status…</p>
       </div>
-      <p class="muted" id="claudeHint" style="margin-top: 10px;">
-        One-click setup. Atomically writes Sessionat into
-        <code id="claudeConfigPath">~/Library/Application Support/Claude/claude_desktop_config.json</code>
-        with a <code>.bak</code> backup. Requires <code>mcp-remote</code>:
-        <code>npm i -g mcp-remote</code>. Restart Claude Desktop after connecting.
-      </p>
-      <details style="margin-top: 14px;">
-        <summary class="muted" style="cursor: pointer; font-size: 12px;">Show raw config snippet</summary>
-        <pre class="code-block" id="claudeConfig" style="margin-top: 8px;">Loading…</pre>
-      </details>
     </section>
 
     <section class="card write-card">
@@ -98,10 +121,13 @@
         </label>
       </div>
       <p class="muted" id="writeWarn" style="display: none; margin-top: 10px;">
-        ⚠ Write tools are <strong>ON</strong>. Any process that can read
+        ⚠ Write tools are <strong>ON</strong> for the master token. Any process that can read
         <code id="writeWarnPath">mcp.json</code> can mutate Sessionat state.
         Disable when you're done if you don't trust everything on this
         machine.
+      </p>
+      <p class="muted" style="margin-top: 10px; font-size: 12px;">
+        Per-client grants live inside each client card above. This global switch is the default for new clients.
       </p>
     </section>
 
@@ -112,20 +138,23 @@
       </div>
     </section>
 
-    <section class="card about">
-      <h2>About this server</h2>
-      <p>
-        The MCP server runs inside Sessionat itself — no external Node process,
-        no Mojo IPC. Tools call directly into Sessionat's WorkspaceService and
-        VisitAnalyticsService.
-      </p>
-      <p class="muted">
-        Bound to <code>127.0.0.1</code> only. Bearer-token authenticated.
-        v0.2 is read-only; write tools (create workspace, switch, open URL)
-        ship in v0.3 with per-client first-use approval.
-      </p>
-    </section>
+    <footer class="card about-footer">
+      <details>
+        <summary>About this server</summary>
+        <p>
+          The MCP server runs inside Sessionat itself — no external Node process,
+          no Mojo IPC. Tools call directly into Sessionat's WorkspaceService and
+          VisitAnalyticsService.
+        </p>
+        <p class="muted">
+          Bound to <code>127.0.0.1</code> only. Bearer-token authenticated.
+          Write tools (create workspace, switch, open URL) require per-client
+          first-use approval.
+        </p>
+      </details>
+    </footer>
   </div>
+  <div class="toast-host" id="toastHost" aria-live="polite"></div>
   <script src="sessionat_mcp.js"></script>
 </body>
 </html>

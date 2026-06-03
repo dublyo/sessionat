@@ -27,12 +27,16 @@ class SessionatMcpHandler : public content::WebUIMessageHandler {
 
  private:
   void HandleGetStatus(const base::ListValue& args);
-  void HandleSetWriteEnabled(const base::ListValue& args);
 
-  // Claude Desktop integration.
-  void HandleGetClaudeStatus(const base::ListValue& args);
-  void HandleConnectClaude(const base::ListValue& args);
-  void HandleDisconnectClaude(const base::ListValue& args);
+  // Client-parameterized handlers (replace the per-client Claude-only set).
+  void HandleConnectClient(const base::ListValue& args);
+  void HandleDisconnectClient(const base::ListValue& args);
+  void HandleGetClientStatus(const base::ListValue& args);
+  void HandleGetAllClientStatuses(const base::ListValue& args);
+  void HandleRevealClientConfig(const base::ListValue& args);
+  void HandleSetClientWriteGrant(const base::ListValue& args);
+  void HandleTestConnection(const base::ListValue& args);
+  void HandleRotateToken(const base::ListValue& args);
 
   base::WeakPtrFactory<SessionatMcpHandler> weak_factory_{this};
 };
