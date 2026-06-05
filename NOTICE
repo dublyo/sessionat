@@ -1,0 +1,30 @@
+Sessionat — Third-Party Notices
+================================
+
+This repository contains source patches that modify Chromium. The patches
+themselves are MIT-licensed (see LICENSE). When building a complete browser
+from these patches plus an upstream Chromium checkout, the following licenses
+apply to the respective code segments:
+
+  - Patches in this repository
+    Licensed under the MIT License. See LICENSE.
+
+  - Chromium (the browser engine these patches modify)
+    Licensed under a BSD-style license.
+    See https://chromium.googlesource.com/chromium/src/+/HEAD/LICENSE
+    and the LICENSES.chromium directory in a Chromium checkout for the full
+    set of upstream third-party notices.
+
+Trademarks
+----------
+"Chrome", "Chromium", and the Chromium logo are trademarks of Google LLC.
+Sessionat is an independent project; it is not affiliated with, endorsed by,
+or sponsored by Google. Distributions built from these patches must comply
+with the Chromium project's trademark guidelines and ship under their own
+product name and branding (Sessionat's icons and product strings live in
+chromium-patches/chrome/app/theme/ — fork builders should replace them with
+their own).
+
+Author
+------
+Ibrahim elsherbini — https://www.linkedin.com/in/drhema/

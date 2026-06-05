@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2026 Ibrahim elsherbini (Sessionat) <https://www.linkedin.com/in/drhema/>
+Copyright (c) 2026 Ibrahim elsherbini <https://www.linkedin.com/in/drhema/>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,11 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-This repository contains source patches that modify Chromium. Chromium itself
-is licensed under a BSD-style license (https://chromium.googlesource.com/chromium/src/+/HEAD/LICENSE);
-the patches in this repository are MIT-licensed as described above. When
-building a complete browser from these patches plus a Chromium checkout, both
-licenses apply to the respective code segments.
